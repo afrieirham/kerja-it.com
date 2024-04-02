@@ -12,14 +12,14 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 20
-      # - uses: oven-sh/setup-bun@v1
-      #   with:
-      #     bun-version: 1.1.0
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: 1.1.0
       - name: Run Node.js script
         working-directory: ./scripts
         run: |
-          npm install  
-          npm run start
+          bun install  
+          bun run start
         env:
           GOOGLE_SEARCH_CX: ${{ secrets.GOOGLE_SEARCH_CX }}
           GOOGLE_SEARCH_KEY: ${{ secrets.GOOGLE_SEARCH_KEY }}
