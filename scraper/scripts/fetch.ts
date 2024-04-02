@@ -26,6 +26,8 @@ const runner = async () => {
       query: { start, cx, key, q: query },
     });
 
+    console.log(requestUrl);
+
     const { data } = await axios.get(requestUrl);
     const results = data as GoogleAPIResult;
 
