@@ -45,6 +45,12 @@ const runner = async () => {
     if (!results.queries.nextPage) {
       break;
     }
+
+    start += 10;
+
+    if (start > 91) {
+      break;
+    }
   }
   // end fetching jobs
   console.log(allResults);
