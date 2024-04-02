@@ -64,32 +64,34 @@ const runner = async () => {
   // end get html from links
 
   // start extract json-ld from htmls
-  const jobs = htmls.map((html) => {
-    // get all ld+json
-    const $ = load(html);
-    let jobSchema = $("script[type='application/ld+json']").text();
-    if (!jobSchema) {
+  const jobs = htmls
+    .map((html) => {
+      // get all ld+json
+      const $ = load(html);
+      let jobSchema = $("script[type='application/ld+json']").text();
+      if (!jobSchema) {
+        return false;
+      }
+
+      // start if there's multiple ld+json
+      const split = jobSchema.split("}{");
+      if (split.length > 1) {
+        const fixed = split.map((item, i) =>
+          i % 2 === 0 ? item + "}" : "{" + item
+        );
+        const formatted = fixed.map((i) => JSON.parse(i));
+        const schema = formatted.find((item) => item["@type"] === "JobPosting");
+        return schema;
+      }
+      // end if there's multiple ld+json
+
+      const parsedSchema = JSON.parse(jobSchema);
+      if (parsedSchema && parsedSchema["@type"] === "JobPosting") {
+        return parsedSchema;
+      }
       return false;
-    }
-
-    // start if there's multiple ld+json
-    const split = jobSchema.split("}{");
-    if (split.length > 1) {
-      const fixed = split.map((item, i) =>
-        i % 2 === 0 ? item + "}" : "{" + item
-      );
-      const formatted = fixed.map((i) => JSON.parse(i));
-      const schema = formatted.find((item) => item["@type"] === "JobPosting");
-      return schema;
-    }
-    // end if there's multiple ld+json
-
-    const parsedSchema = JSON.parse(jobSchema);
-    if (parsedSchema && parsedSchema["@type"] === "JobPosting") {
-      return parsedSchema;
-    }
-    return false;
-  });
+    })
+    .filter(Boolean);
   // end extract json-ld from htmls
   console.log(jobs);
 };
