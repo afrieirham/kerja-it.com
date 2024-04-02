@@ -6,7 +6,7 @@
     "bun-types": "latest"
   },
   "scripts": {
-    "start": "bun src/fetch.ts"
+    "start": "bun src/test.ts"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
