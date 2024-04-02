@@ -19,7 +19,7 @@ jobs:
         working-directory: ./scripts
         run: |
           bun install  
-          bun fetch.ts
+          bun run start
         env:
           GOOGLE_SEARCH_CX: ${{ secrets.GOOGLE_SEARCH_CX }}
           GOOGLE_SEARCH_KEY: ${{ secrets.GOOGLE_SEARCH_KEY }}
