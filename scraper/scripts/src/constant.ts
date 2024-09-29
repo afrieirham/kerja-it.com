@@ -1,6 +1,6 @@
 export const title = [
   // // software developer
-  // "software engineer",
+  "software engineer",
   // "software developer",
   // "developer",
 
@@ -70,5 +70,5 @@ export const title = [
   // "machine learning",
 
   // automation
-  "rpa",
+  // "rpa",
 ];
