@@ -1,7 +1,12 @@
 export const tests = [
-  "https://www.workatastartup.com/jobs/69598",
-  "https://startup.jobs/software-engineer-3741-gbg-5885853",
-  "https://jobs.lever.co/guidewire/8c2d5383-4e60-40cb-9322-7161b10678bc",
-  "https://www.maukerja.my/job/17227426-software-engineer",
-  "https://boards.greenhouse.io/agoda/jobs/5709909",
+  "https://my.hiredly.com/jobs/jobs-malaysia-mastercard-job-software-engineer-ii-18",
+  "https://my.hiredly.com/jobs/jobs-malaysia-mastercard-job-principal-software-engineer-12",
+  "https://my.hiredly.com/jobs/jobs-malaysia-mastercard-job-software-engineer-ii-6",
+  "https://my.hiredly.com/jobs/jobs-malaysia-deloitte-consulting-job-drsc-global-technology-cloud-developer-azure-0",
+  "https://my.hiredly.com/jobs/jobs-malaysia-big-byte-insights-job-internship-associate-software-engineer-python",
+  "https://my.hiredly.com/jobs/jobs-malaysia-mastercard-job-software-engineer-ii-sdet-java",
+  "https://my.hiredly.com/jobs/jobs-malaysia-mastercard-job-software-engineer-4",
+  "https://my.hiredly.com/jobs/jobs-malaysia-mastercard-job-lead-software-engineer-aws-cloud-platform-engineering",
+  "https://my.hiredly.com/jobs/jobs-malaysia-mastercard-job-lead-software-engineer-38",
+  "https://my.hiredly.com/jobs/jobs-malaysia-mastercard-job-senior-software-engineer-cloud-platforms",
 ];

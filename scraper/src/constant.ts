@@ -1,74 +1,94 @@
 export const title = [
-  // // software developer
+  // software developer
   "software engineer",
-  // "software developer",
-  // "developer",
+  "software developer",
+  "developer",
 
-  // // web & fronted
-  // "website developer",
-  // "web developer",
-  // "frontend developer",
-  // "frontend engineer",
+  // web & fronted
+  "website developer",
+  "web developer",
+  "frontend developer",
+  "frontend engineer",
 
-  // // backend & fullstack
-  // "backend developer",
-  // "backend engineer",
-  // "full stack developer",
-  // "full stack engineer",
+  // backend & fullstack
+  "backend developer",
+  "backend engineer",
+  "full stack developer",
+  "full stack engineer",
 
-  // // mobile
-  // "mobile developer",
-  // "mobile engineer",
-  // "ios",
-  // "android",
-  // "flutter",
-  // "react native",
+  // mobile
+  "mobile developer",
+  "mobile engineer",
+  "ios",
+  "android",
+  "flutter",
+  "react native",
 
-  // // data engineer
-  // "data analyst",
-  // "data engineer",
-  // "data scientist",
+  // data engineer
+  "data analyst",
+  "data engineer",
+  "data scientist",
 
-  // // devops
-  // "devops",
-  // "devops engineer",
-  // "cloud engineer",
-  // "cloud developer",
-  // "cloud architect",
+  // devops
+  "devops",
+  "devops engineer",
+  "cloud engineer",
+  "cloud developer",
+  "cloud architect",
 
-  // // designer
-  // "ui ux",
-  // "website designer",
-  // "web designer",
-  // "product designer",
+  // designer
+  "ui ux",
+  "website designer",
+  "web designer",
+  "product designer",
 
-  // // product
-  // "product",
-  // "product owner",
-  // "product manager",
+  // product
+  "product",
+  "product owner",
+  "product manager",
 
-  // // tech lead
-  // "tech lead",
-  // "technical lead",
-  // "engineering manager",
-  // "qa lead",
+  // tech lead
+  "tech lead",
+  "technical lead",
+  "engineering manager",
+  "qa lead",
 
-  // // tester
-  // "qa",
-  // "qa engineer",
-  // "quality assurance",
-  // "tester",
-  // "test engineer",
-  // "test automation engineer",
-  // "software tester",
+  // tester
+  "qa",
+  "qa engineer",
+  "quality assurance",
+  "tester",
+  "test engineer",
+  "test automation engineer",
+  "software tester",
 
-  // // ai
-  // "ai ml",
-  // "ai engineer",
-  // "ml engineer",
-  // "artificial intelligence",
-  // "machine learning",
+  // ai
+  "ai ml",
+  "ai engineer",
+  "ml engineer",
+  "artificial intelligence",
+  "machine learning",
 
   // automation
-  // "rpa",
+  "rpa",
+];
+
+export const location = [
+  "johor",
+  "kedah",
+  "kelantan",
+  "melaka",
+  "negeri sembilan",
+  "pahang",
+  "perak",
+  "perlis",
+  "pulau pinang",
+  "sarawak",
+  "selangor",
+  "terengganu",
+  "kuala lumpur",
+  "labuan",
+  "sabah",
+  "putrajaya",
+  "malaysia",
 ];

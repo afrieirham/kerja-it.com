@@ -5,17 +5,18 @@ import puppeteer from "puppeteer-core";
 import { format, sub } from "date-fns";
 import { JobPosting } from "schema-dts";
 
-import { title } from "./constant";
+import { location, title } from "./constant";
 import { tests } from "./test";
 import { GoogleAPIResult } from "./types";
 
-const fake = [];
+const fake = [1]; // config: use empty array to skip fetching real data
 
 const runner = async () => {
   // start construct google query
   const time = `after:${format(sub(new Date(), { days: 1 }), "yyyy-MM-dd")}`;
   const terms = title.map((job) => `"${job}"`).join(" | ");
-  const query = `${time} ${terms}`;
+  const locations = location.map((location) => `"${location}"`).join(" | ");
+  const query = `${time} (${locations}) (${terms})`;
   // end construct google query
 
   // start fetching jobs
@@ -52,6 +53,7 @@ const runner = async () => {
 
     start += 10;
 
+    // config: change start === 11 to fetch 1 round
     if (start > 91) {
       break;
     }
