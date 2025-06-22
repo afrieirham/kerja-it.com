@@ -16,7 +16,7 @@ jobs:
         with:
           bun-version: 1.1.0
       - name: Run Node.js script
-        working-directory: ./scripts
+        working-directory: .
         run: |
           bun install  
           bun run start
