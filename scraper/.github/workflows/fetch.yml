@@ -23,3 +23,5 @@ jobs:
         env:
           GOOGLE_SEARCH_CX: ${{ secrets.GOOGLE_SEARCH_CX }}
           GOOGLE_SEARCH_KEY: ${{ secrets.GOOGLE_SEARCH_KEY }}
+          BASE_API_URL: ${{ secrets.BASE_API_URL }}
+          CRON_API_KEY: ${{ secrets.CRON_API_KEY }}
