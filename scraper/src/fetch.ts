@@ -8,6 +8,7 @@ import { GoogleAPIResult } from "./types";
 const fake = [1]; // config: use empty array to skip fetching real data
 
 const runner = async () => {
+  console.log("starting cron");
   const { format, sub } = dateFns;
   // start construct google query
   const time = `after:${format(sub(new Date(), { days: 1 }), "yyyy-MM-dd")}`;
@@ -86,7 +87,7 @@ const runner = async () => {
 
   // start saving jobs
   console.log("sending jobs to db");
-  await fetch(`${process.env.BASE_API_URL}/cron/insert`, {
+  const res = await fetch(`${process.env.BASE_API_URL}/cron/insert`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -95,6 +96,7 @@ const runner = async () => {
     }),
   });
   console.log("sucessfully save jobs in db");
+  console.log(JSON.stringify(await res.json()));
   // end saving jobs
 };
 
