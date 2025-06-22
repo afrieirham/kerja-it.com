@@ -73,9 +73,10 @@ export interface Pagemap {
 }
 
 export interface Metatag {
+  title: string;
   "og:type"?: string;
   viewport: string;
-  "og:title": string;
+  "og:title"?: string;
   "og:url"?: string;
   "og:image"?: string;
   "twitter:card"?: string;
