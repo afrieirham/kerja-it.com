@@ -1,12 +1,11 @@
-import qs from "query-string";
 import axios from "axios";
 import puppeteer from "puppeteer-core";
+import qs from "query-string";
 
 import { format, sub } from "date-fns";
 import { JobPosting } from "schema-dts";
 
 import { location, title } from "./constant";
-import { tests } from "./test";
 import { GoogleAPIResult } from "./types";
 
 const fake = [1]; // config: use empty array to skip fetching real data
@@ -24,7 +23,7 @@ const runner = async () => {
   const key = process.env.GOOGLE_SEARCH_KEY;
   const apiUrl = "https://www.googleapis.com/customsearch/v1";
 
-  let links = [...tests];
+  let links = [];
   let start = 1;
 
   while (fake.length !== 0) {
@@ -140,6 +139,18 @@ async function scrapeJobPostingSchema(url: string) {
       jobPosting.jobLocation?.address?.addressRegion ||
       jobPosting.jobLocation?.address?.addressCountry) ??
     "";
+
+  await axios.post("https://v2.kerja-it.com/api/cron/insert", {
+    body: {
+      apiKey: process.env.CRON_API_KEY,
+      input: {
+        url: jobUrl,
+        title: jobTitle,
+        companyName,
+        location: jobLocation,
+      },
+    },
+  });
 
   return {
     jobUrl,
