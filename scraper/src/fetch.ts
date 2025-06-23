@@ -97,10 +97,12 @@ const runner = async () => {
         title: link.title
           .replaceAll("di", "|")
           .replaceAll("sedang mencari pekerja untuk jawatan", "|"),
-        description: link.description.replaceAll(
-          "Lihat ini dan pekerjaan yang serupa di LinkedIn.",
-          ""
-        ),
+        description: link.description
+          .replaceAll("Lihat ini dan pekerjaan yang serupa di LinkedIn.", "")
+          .replaceAll(
+            /^Dipaparkan\s+\d{1,2}:\d{2}:\d{2}\s+(?:PG|PTG)\.\s*/,
+            ""
+          ),
       })),
     }),
   });
