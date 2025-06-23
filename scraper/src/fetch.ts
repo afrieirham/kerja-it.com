@@ -97,6 +97,10 @@ const runner = async () => {
         title: link.title
           .replaceAll("di", "|")
           .replaceAll("sedang mencari pekerja untuk jawatan", "|"),
+        description: link.description.replaceAll(
+          "Lihat ini dan pekerjaan yang serupa di LinkedIn.",
+          ""
+        ),
       })),
     }),
   });
