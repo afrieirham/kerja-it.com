@@ -2,7 +2,7 @@ import axios from "axios";
 import * as dateFns from "date-fns";
 import qs from "query-string";
 
-import { location, title } from "./constant";
+import { location, job_title } from "./constant";
 import { GoogleAPIResult } from "./types";
 
 const fake = [1]; // config: use empty array to skip fetching real data
@@ -12,7 +12,7 @@ const runner = async () => {
   const { format, sub } = dateFns;
   // start construct google query
   const time = `after:${format(sub(new Date(), { days: 1 }), "yyyy-MM-dd")}`;
-  const terms = title.map((job) => `"${job}"`).join(" | ");
+  const terms = job_title.map((job) => `"${job}"`).join(" | ");
   const locations = location.map((location) => `"${location}"`).join(" | ");
   const query = `${time} (${locations}) (${terms})`;
   // end construct google query
@@ -92,7 +92,12 @@ const runner = async () => {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       apiKey: process.env.CRON_API_KEY,
-      input: links,
+      input: links.map((link) => ({
+        ...link,
+        title: link.title
+          .replaceAll("di", "|")
+          .replaceAll("sedang mencari pekerja untuk jawatan", "|"),
+      })),
     }),
   });
   console.log("sucessfully save jobs in db");

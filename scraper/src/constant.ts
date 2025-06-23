@@ -1,4 +1,4 @@
-export const title = [
+export const job_title = [
   // software developer
   "software engineer",
   "software developer",
