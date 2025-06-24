@@ -95,7 +95,7 @@ const runner = async () => {
       input: links.map((link) => ({
         ...link,
         title: link.title
-          .replaceAll("di", "|")
+          .replaceAll(" di ", " | ")
           .replaceAll("sedang mencari pekerja untuk jawatan", "|"),
         description: link.description
           .replaceAll("Lihat ini dan pekerjaan yang serupa di LinkedIn.", "")
