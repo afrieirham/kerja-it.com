@@ -100,7 +100,7 @@ const runner = async () => {
         description: link.description
           .replaceAll("Lihat ini dan pekerjaan yang serupa di LinkedIn.", "")
           .replaceAll(
-            /^Dipaparkan\s+\d{1,2}:\d{2}:\d{2}\s+(?:PG|PTG)\.\s*/,
+            /^Dipaparkan\s+\d{1,2}:\d{2}:\d{2}\s+(?:PG|PTG)\.\s*/g,
             ""
           ),
       })),
