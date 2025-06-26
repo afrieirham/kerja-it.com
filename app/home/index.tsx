@@ -56,10 +56,8 @@ export default function Home(props: Route.ComponentProps) {
         />
         <Button type="submit">Search</Button>
         {!!q && (
-          <Button type="reset" variant="ghost" name="q" asChild>
-            <Link to="/" reloadDocument>
-              Reset
-            </Link>
+          <Button variant="ghost" asChild>
+            <a href="/">Reset</a>
           </Button>
         )}
       </Form>
