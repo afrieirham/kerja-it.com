@@ -1,6 +1,6 @@
 import { Form } from "react-router";
 
-function PaginationButton({
+export function PaginationButton({
   q,
   page,
   itemLength,
@@ -15,13 +15,8 @@ function PaginationButton({
     <div className="flex flex-row-reverse items-center justify-between text-sm">
       <div className="flex gap-4">
         <Form>
-          {q && <input type="hidden" name="q" value={q} defaultValue={q} />}
-          <input
-            type="hidden"
-            name="p"
-            value={page - 1}
-            defaultValue={page + 1}
-          />
+          {q && <input type="hidden" name="q" value={q} />}
+          <input type="hidden" name="p" value={page - 1} />
 
           <button
             type="submit"
@@ -32,13 +27,8 @@ function PaginationButton({
           </button>
         </Form>
         <Form>
-          {q && <input type="hidden" name="q" value={q} defaultValue={q} />}
-          <input
-            type="hidden"
-            name="p"
-            value={page + 1}
-            defaultValue={page + 1}
-          />
+          {q && <input type="hidden" name="q" value={q} />}
+          <input type="hidden" name="p" value={page + 1} />
 
           <button
             type="submit"
@@ -53,5 +43,3 @@ function PaginationButton({
     </div>
   );
 }
-
-export default PaginationButton;

@@ -1,4 +1,4 @@
-import { Form, Link } from "react-router";
+import { Form } from "react-router";
 
 import { formatDistanceToNowStrict } from "date-fns";
 import parse from "html-react-parser";
@@ -6,9 +6,9 @@ import qs from "query-string";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PaginationButton } from "@/home/pagination-button";
 import { getAllJobs } from "@/server/queries/jobs";
 import type { Route } from "./+types/index";
-import PaginationButton from "@/home/pagination-button";
 
 export function meta({}: Route.MetaArgs) {
   return [
