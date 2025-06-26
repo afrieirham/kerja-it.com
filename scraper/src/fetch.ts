@@ -85,6 +85,18 @@ const runner = async () => {
   }
   // end fetching jobs
 
+  console.log("start formatting links");
+  const apiInput = links.map((link) => ({
+    ...link,
+    title: link.title
+      .replaceAll(" di ", " | ")
+      .replaceAll("sedang mencari pekerja untuk jawatan", "|"),
+    description: link.description
+      .replaceAll("Lihat ini dan pekerjaan yang serupa di LinkedIn.", "")
+      .replaceAll(/^Dipaparkan\s+\d{1,2}:\d{2}:\d{2}\s+(?:PG|PTG)\.\s*/g, ""),
+  }));
+  console.log("done formatting links", apiInput);
+
   // start saving jobs
   console.log("sending jobs to db");
   const res = await fetch(`${process.env.BASE_API_URL}/cron`, {
@@ -92,18 +104,7 @@ const runner = async () => {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       apiKey: process.env.CRON_API_KEY,
-      input: links.map((link) => ({
-        ...link,
-        title: link.title
-          .replaceAll(" di ", " | ")
-          .replaceAll("sedang mencari pekerja untuk jawatan", "|"),
-        description: link.description
-          .replaceAll("Lihat ini dan pekerjaan yang serupa di LinkedIn.", "")
-          .replaceAll(
-            /^Dipaparkan\s+\d{1,2}:\d{2}:\d{2}\s+(?:PG|PTG)\.\s*/g,
-            ""
-          ),
-      })),
+      input: apiInput,
     }),
   });
   console.log("sucessfully save jobs in db");
