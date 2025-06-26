@@ -1,4 +1,4 @@
-import { env } from "env";
+import { env } from "@/env";
 import type { Route } from "./+types/cron-insert";
 import { db } from "@/server/db";
 
