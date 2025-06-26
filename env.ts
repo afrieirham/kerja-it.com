@@ -7,6 +7,7 @@ export const env = createEnv({
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
+    CRON_API_KEY: z.string(),
   },
 
   /**
