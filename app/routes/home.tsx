@@ -1,4 +1,4 @@
-import { Form, NavLink } from "react-router";
+import { Form, Link, NavLink } from "react-router";
 
 import { formatDistanceToNowStrict } from "date-fns";
 import parse from "html-react-parser";
@@ -50,6 +50,11 @@ export default function Home(props: Route.ComponentProps) {
           defaultValue={q}
         />
         <Button type="submit">Search</Button>
+        {!!q && (
+          <Button type="reset" variant="ghost">
+            <a href="/">Reset</a>
+          </Button>
+        )}
       </Form>
       <div className="mt-4 text-xs text-gray-500">
         <p>Total: {jobs?.length}</p>
