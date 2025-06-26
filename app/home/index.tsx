@@ -1,4 +1,4 @@
-import { Form, Link, NavLink } from "react-router";
+import { Form, Link } from "react-router";
 
 import { formatDistanceToNowStrict } from "date-fns";
 import parse from "html-react-parser";
@@ -7,7 +7,8 @@ import qs from "query-string";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getAllJobs } from "@/server/queries/jobs";
-import type { Route } from "./+types/home";
+import type { Route } from "./+types/index";
+import PaginationButton from "@/home/pagination-button";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -21,15 +22,19 @@ export function meta({}: Route.MetaArgs) {
 
 export async function loader({ request }: Route.LoaderArgs) {
   const url = qs.parseUrl(request.url);
-  const searchTerm = (url.query.q || url.query.query) ?? "";
 
-  const jobs = await getAllJobs({ searchTerm: String(searchTerm) });
+  const { q, query, p } = url.query;
 
-  return { jobs, q: String(searchTerm) };
+  const searchTerm = (q || query) ?? "";
+  const page = p ? Number(p) : 1;
+
+  const jobs = await getAllJobs({ searchTerm: String(searchTerm), page });
+
+  return { jobs, q: String(searchTerm), page };
 }
 
 export default function Home(props: Route.ComponentProps) {
-  const { jobs, q } = props.loaderData;
+  const { jobs, q, page } = props.loaderData;
 
   return (
     <main className="mx-auto max-w-6xl p-4">
@@ -51,14 +56,18 @@ export default function Home(props: Route.ComponentProps) {
         />
         <Button type="submit">Search</Button>
         {!!q && (
-          <Button type="reset" variant="ghost">
-            <a href="/">Reset</a>
+          <Button type="reset" variant="ghost" name="q" asChild>
+            <Link to="/" reloadDocument>
+              Reset
+            </Link>
           </Button>
         )}
       </Form>
-      <div className="mt-4 text-xs text-gray-500">
-        <p>Total: {jobs?.length}</p>
+
+      <div className="mt-4">
+        <PaginationButton q={q} page={page} itemLength={jobs.length} />
       </div>
+
       <div className="mt-4">
         {jobs.length > 0 ? (
           jobs.map((job) => (
@@ -83,6 +92,9 @@ export default function Home(props: Route.ComponentProps) {
         ) : (
           <p className="text-sm text-gray-800">No jobs found.</p>
         )}
+        <div>
+          <PaginationButton q={q} page={page} itemLength={jobs.length} />
+        </div>
       </div>
     </main>
   );
