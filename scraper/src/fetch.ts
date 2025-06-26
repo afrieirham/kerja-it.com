@@ -87,7 +87,7 @@ const runner = async () => {
 
   // start saving jobs
   console.log("sending jobs to db");
-  const res = await fetch(`${process.env.BASE_API_URL}/cron/insert`, {
+  const res = await fetch(`${process.env.BASE_API_URL}/cron`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
