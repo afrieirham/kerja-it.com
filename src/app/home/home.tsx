@@ -6,9 +6,9 @@ import qs from "query-string";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PaginationButton } from "@/home/pagination-button";
+import { PaginationButton } from "@/app/home/pagination-button";
 import { getAllJobs } from "@/server/queries/jobs";
-import type { Route } from "./+types/index";
+import type { Route } from "./+types/home";
 
 export function meta({}: Route.MetaArgs) {
   return [
