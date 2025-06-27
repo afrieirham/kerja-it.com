@@ -39,7 +39,7 @@ export function PaginationButton({
           </button>
         </Form>
       </div>
-      <p className="text-black">total {itemLength}</p>
+      <p className="text-black">Total {itemLength}</p>
     </div>
   );
 }
