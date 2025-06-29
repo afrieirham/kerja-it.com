@@ -2,9 +2,12 @@ import {
   SignedIn,
   SignedOut,
   SignOutButton,
+  SignUpButton,
   useUser,
 } from "@clerk/react-router";
 import { Link } from "react-router";
+
+import { Button } from "@/components/ui/button";
 
 export function Header() {
   const { user } = useUser();
@@ -17,32 +20,31 @@ export function Header() {
         </h1>
       </div>
       <SignedOut>
-        {/* <SignUpButton>
-          <button className="cursor-pointer text-sm hover:underline disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:no-underline">
+        <SignUpButton>
+          <Button variant="minimal" size="minimal">
             login
-          </button>
-        </SignUpButton> */}
+          </Button>
+        </SignUpButton>
       </SignedOut>
       <SignedIn>
         <div className="flex items-center gap-2 text-sm">
-          <Link
-            to="/profile"
-            className="cursor-pointer text-sm lowercase hover:underline disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:no-underline"
+          <Button
+            variant="minimal"
+            size="minimal"
+            className="lowercase"
+            asChild
           >
-            {user?.fullName}
-          </Link>
+            <Link to="/profile">{user?.fullName}</Link>
+          </Button>
           {user && <p>/</p>}
-          <Link
-            to="/dashboard"
-            className="cursor-pointer text-sm lowercase hover:underline disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:no-underline"
-          >
-            dashboard
-          </Link>
+          <Button variant="minimal" size="minimal" asChild>
+            <Link to="/dashboard">dashboard</Link>
+          </Button>
           <p>/</p>
           <SignOutButton>
-            <button className="cursor-pointer text-sm hover:underline disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:no-underline">
+            <Button variant="minimal" size="minimal">
               logout
-            </button>
+            </Button>
           </SignOutButton>
         </div>
       </SignedIn>
