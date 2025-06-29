@@ -5,7 +5,7 @@ import { formatDistanceToNowStrict } from "date-fns";
 import parse from "html-react-parser";
 import qs from "query-string";
 
-import { PaginationButton } from "@/app/home/pagination-button";
+import { Header } from "@/components/header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getAllJobs } from "@/server/queries/jobs";
@@ -26,7 +26,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   const { q, query, p } = url.query;
 
-  const searchTerm = (q || query) ?? "";
+  const searchTerm = q ?? query ?? "";
   const page = p ? Number(p) : 1;
 
   const jobs = getAllJobs({ searchTerm: String(searchTerm), page });
@@ -38,15 +38,8 @@ export default function Home(props: Route.ComponentProps) {
   const { jobs, q, page } = props.loaderData;
 
   return (
-    <main className="mx-auto max-w-6xl p-4">
-      <h1 className="text-xl">Kerja-IT.com</h1>
-      <p className="text-sm">
-        IT jobs in Malaysia sourced from various job boards.{" "}
-        <span className="text-xs text-gray-500">
-          (yes new simplified design)
-        </span>
-      </p>
-
+    <div className="mx-auto max-w-6xl p-4">
+      <Header />
       <Form className="mt-4 flex items-center gap-2">
         <Input
           name="q"
@@ -75,10 +68,12 @@ export default function Home(props: Route.ComponentProps) {
           {(jobs) => (
             <>
               <div className="mt-4">
-                <PaginationButton q={q} page={page} itemLength={jobs.length} />
+                <p className="text-xs text-gray-500">
+                  Showing {jobs.length} jobs
+                </p>
               </div>
 
-              <div className="mt-4">
+              <main className="mt-4">
                 {jobs.length > 0 ? (
                   jobs.map((job) => (
                     <div key={job.id} className="mb-8">
@@ -94,7 +89,7 @@ export default function Home(props: Route.ComponentProps) {
                           {formatDistanceToNowStrict(job.createdAt)}
                         </span>
                       </p>
-                      <p className="mt-2 text-sm text-gray-800 line-clamp-3">
+                      <p className="mt-2 line-clamp-3 text-sm text-gray-800">
                         {parse(job.description)}
                       </p>
                     </div>
@@ -109,11 +104,52 @@ export default function Home(props: Route.ComponentProps) {
                     itemLength={jobs.length}
                   />
                 </div>
-              </div>
+              </main>
             </>
           )}
         </Await>
       </Suspense>
-    </main>
+    </div>
+  );
+}
+
+function PaginationButton({
+  q,
+  page,
+  itemLength,
+}: {
+  q: string;
+  page: number;
+  itemLength: number;
+}) {
+  if (itemLength === 0) return null;
+
+  return (
+    <div className="mx-auto flex w-full items-center gap-4 text-sm">
+      <Form>
+        {q && <input type="hidden" name="q" value={q} />}
+        <input type="hidden" name="p" value={page - 1} />
+
+        <button
+          type="submit"
+          disabled={page === 1}
+          className="cursor-pointer hover:underline disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:no-underline"
+        >
+          prev
+        </button>
+      </Form>
+      <Form>
+        {q && <input type="hidden" name="q" value={q} />}
+        <input type="hidden" name="p" value={page + 1} />
+
+        <button
+          type="submit"
+          disabled={itemLength !== 50}
+          className="cursor-pointer hover:underline disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:no-underline"
+        >
+          next
+        </button>
+      </Form>
+    </div>
   );
 }
