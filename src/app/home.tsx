@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { Await, Form } from "react-router";
+import { Await, Form, href, Link } from "react-router";
 
 import { formatDistanceToNowStrict } from "date-fns";
 import parse from "html-react-parser";
@@ -51,7 +51,9 @@ export default function Home(props: Route.ComponentProps) {
         <Button type="submit">Search</Button>
         {!!q && (
           <Button variant="ghost" asChild>
-            <a href="/">Reset</a>
+            <Link to={href("/")} reloadDocument>
+              Reset
+            </Link>
           </Button>
         )}
       </Form>

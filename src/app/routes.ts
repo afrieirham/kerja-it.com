@@ -4,5 +4,6 @@ export default [
   index("home.tsx"),
   route("dashboard", "dashboard.tsx"),
   route("profile", "profile.tsx"),
-  route("api/cron", "api/cron-insert.ts"),
+  route("api/cron", ".server/cron-insert.ts"),
+  route("api/stripe/webhook", ".server/stripe-webhook.ts"),
 ] satisfies RouteConfig;

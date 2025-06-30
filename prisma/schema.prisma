@@ -12,7 +12,17 @@ model Job {
   url         String   @unique
   title       String
   description String
+  source      String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  source      String
+}
+
+model Recruiter {
+  id        String   @id
+  email     String   @unique
+  jobCredit Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
 }

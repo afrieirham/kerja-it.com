@@ -5,7 +5,7 @@ import {
   SignUpButton,
   useUser,
 } from "@clerk/react-router";
-import { Link } from "react-router";
+import { href, Link } from "react-router";
 
 import { Button } from "@/components/ui/button";
 
@@ -13,10 +13,10 @@ export function Header() {
   const { user } = useUser();
 
   return (
-    <div className="flex w-full items-center justify-between">
+    <div className="flex w-full items-center justify-between border-b pb-2">
       <div>
         <h1 className="text-sm font-bold hover:underline">
-          <Link to="/">Kerja-IT.com</Link>
+          <Link to={href("/")}>Kerja-IT.com</Link>
         </h1>
       </div>
       <SignedOut>
@@ -34,11 +34,11 @@ export function Header() {
             className="lowercase"
             asChild
           >
-            <Link to="/profile">{user?.fullName}</Link>
+            <Link to={href("/profile")}>{user?.fullName}</Link>
           </Button>
           {user && <p>/</p>}
           <Button variant="minimal" size="minimal" asChild>
-            <Link to="/dashboard">dashboard</Link>
+            <Link to={href("/dashboard")}>dashboard</Link>
           </Button>
           <p>/</p>
           <SignOutButton>

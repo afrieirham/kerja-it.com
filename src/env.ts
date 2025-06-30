@@ -8,6 +8,14 @@ export const env = createEnv({
       .enum(["development", "test", "production"])
       .default("development"),
     CRON_API_KEY: z.string(),
+    CLERK_SECRET_KEY: z.string(),
+    CLERK_SIGN_UP_FORCE_REDIRECT_URL: z.string(),
+    CLERK_SIGN_IN_FORCE_REDIRECT_URL: z.string(),
+    STRIPE_SECRET_KEY: z.string(),
+    STRIPE_WEBHOOK_SECRET: z.string(),
+    STRIPE_PRODUCT_A_ID: z.string(),
+    STRIPE_PRODUCT_B_ID: z.string(),
+    STRIPE_PRODUCT_C_ID: z.string(),
   },
 
   /**
