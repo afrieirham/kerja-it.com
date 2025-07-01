@@ -18,11 +18,24 @@ model Job {
 }
 
 model Recruiter {
-  id        String   @id
-  email     String   @unique
-  jobCredit Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String         @id
+  email        String         @unique
+  jobCredit    Int            @default(0)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  RecruiterJob RecruiterJob[]
 
   @@index([email])
+}
+
+model RecruiterJob {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  applyUrl    String
+  live        Boolean   @default(false)
+  recruiterId String
+  recruiter   Recruiter @relation(fields: [recruiterId], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }

@@ -32,3 +32,16 @@ export const getAllJobs = async ({
 
   return jobs;
 };
+
+export const getJobById = async ({ id }: { id: string }) => {
+  const job = await db.recruiterJob.findFirst({ where: { id } });
+  return job;
+};
+
+export const getAllMyJob = async ({ id }: { id: string }) => {
+  const jobs = await db.recruiterJob.findMany({
+    where: { recruiterId: id },
+    orderBy: { createdAt: "desc" },
+  });
+  return jobs;
+};

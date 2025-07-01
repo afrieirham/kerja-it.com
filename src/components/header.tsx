@@ -16,9 +16,14 @@ export function Header() {
     <div className="bg-white">
       <div className="container flex w-full items-center justify-between border-b py-2">
         <div>
-          <h1 className="text-sm font-bold hover:underline">
+          <Button
+            variant="minimal"
+            size="minimal"
+            className="font-bold"
+            asChild
+          >
             <Link to={href("/")}>Kerja-IT.com</Link>
-          </h1>
+          </Button>
         </div>
         <SignedOut>
           <SignUpButton>
