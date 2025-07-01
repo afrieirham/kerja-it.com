@@ -94,4 +94,12 @@ body {
   body {
     @apply bg-background text-foreground;
   }
+
+  a.active {
+    @apply !font-bold;
+  }
+
+  a.pending {
+    @apply !animate-pulse;
+  }
 }

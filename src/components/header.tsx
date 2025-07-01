@@ -5,7 +5,7 @@ import {
   SignUpButton,
   useUser,
 } from "@clerk/react-router";
-import { href, Link } from "react-router";
+import { href, Link, NavLink } from "react-router";
 
 import { Button } from "@/components/ui/button";
 
@@ -34,11 +34,11 @@ export function Header() {
             className="lowercase"
             asChild
           >
-            <Link to={href("/profile")}>{user?.fullName}</Link>
+            <NavLink to={href("/profile")}>{user?.fullName}</NavLink>
           </Button>
           {user && <p>/</p>}
           <Button variant="minimal" size="minimal" asChild>
-            <Link to={href("/dashboard")}>dashboard</Link>
+            <NavLink to={href("/dashboard")}>dashboard</NavLink>
           </Button>
           <p>/</p>
           <SignOutButton>
