@@ -15,9 +15,9 @@ export function meta({}: Route.MetaArgs) {
 
 function Profile() {
   return (
-    <div className="mx-auto max-w-6xl p-4">
+    <div>
       <Header />
-      <div className="mx-auto mt-8 flex items-center justify-center">
+      <div className="mx-auto my-8 flex items-center justify-center">
         <UserProfile path="/profile" routing="path" />
       </div>
     </div>

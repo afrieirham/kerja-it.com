@@ -13,41 +13,43 @@ export function Header() {
   const { user } = useUser();
 
   return (
-    <div className="flex w-full items-center justify-between border-b pb-2">
-      <div>
-        <h1 className="text-sm font-bold hover:underline">
-          <Link to={href("/")}>Kerja-IT.com</Link>
-        </h1>
-      </div>
-      <SignedOut>
-        <SignUpButton>
-          <Button variant="minimal" size="minimal">
-            login
-          </Button>
-        </SignUpButton>
-      </SignedOut>
-      <SignedIn>
-        <div className="flex items-center gap-2 text-sm">
-          <Button
-            variant="minimal"
-            size="minimal"
-            className="lowercase"
-            asChild
-          >
-            <NavLink to={href("/profile")}>{user?.fullName}</NavLink>
-          </Button>
-          {user && <p>/</p>}
-          <Button variant="minimal" size="minimal" asChild>
-            <NavLink to={href("/dashboard")}>dashboard</NavLink>
-          </Button>
-          <p>/</p>
-          <SignOutButton>
-            <Button variant="minimal" size="minimal">
-              logout
-            </Button>
-          </SignOutButton>
+    <div className="bg-white">
+      <div className="container flex w-full items-center justify-between border-b py-2">
+        <div>
+          <h1 className="text-sm font-bold hover:underline">
+            <Link to={href("/")}>Kerja-IT.com</Link>
+          </h1>
         </div>
-      </SignedIn>
+        <SignedOut>
+          <SignUpButton>
+            <Button variant="minimal" size="minimal">
+              login
+            </Button>
+          </SignUpButton>
+        </SignedOut>
+        <SignedIn>
+          <div className="flex items-center gap-2 text-sm">
+            <Button
+              variant="minimal"
+              size="minimal"
+              className="lowercase"
+              asChild
+            >
+              <NavLink to={href("/profile")}>{user?.fullName}</NavLink>
+            </Button>
+            {user && <p>/</p>}
+            <Button variant="minimal" size="minimal" asChild>
+              <NavLink to={href("/dashboard")}>dashboard</NavLink>
+            </Button>
+            <p>/</p>
+            <SignOutButton>
+              <Button variant="minimal" size="minimal">
+                logout
+              </Button>
+            </SignOutButton>
+          </div>
+        </SignedIn>
+      </div>
     </div>
   );
 }

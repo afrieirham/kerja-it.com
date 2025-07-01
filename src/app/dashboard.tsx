@@ -3,6 +3,7 @@ import { redirect, useFetcher } from "react-router";
 
 import { getAuth } from "@clerk/react-router/ssr.server";
 import type { VariantProps } from "class-variance-authority";
+import { Loader2 } from "lucide-react";
 import Stripe from "stripe";
 
 import { Header } from "@/components/header";
@@ -90,76 +91,107 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
   } = import.meta.env;
 
   return (
-    <div className="mx-auto max-w-6xl p-4">
+    <div>
       <Header />
-      <div className="mt-8 space-y-8">
-        <div>
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-bold">Purchase Job Credits</p>
-          </div>
-          <div className="mt-2 mb-16 w-full border bg-gray-50 p-4">
-            <StripeButton
-              email={email}
-              priceId={VITE_STRIPE_PRICE_A_ID}
-              buttonText="Buy 1 Credit"
-              buttonProps={{ variant: "minimal", size: "minimal" }}
-            />
-            <StripeButton
-              email={email}
-              priceId={VITE_STRIPE_PRICE_B_ID}
-              buttonText="Buy 3 Credit"
-              buttonProps={{ variant: "minimal", size: "minimal" }}
-            />
-            <StripeButton
-              email={email}
-              priceId={VITE_STRIPE_PRICE_C_ID}
-              buttonText="Buy 5 Credit"
-              buttonProps={{ variant: "minimal", size: "minimal" }}
-            />
-          </div>
-        </div>
-        <div>
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-bold">Dashboard</p>
-            <div className="flex items-center space-x-1">
-              <Button variant="minimal" size="minimal">
-                {credit} premium credit
-              </Button>
-              <p>/</p>
-              <Button variant="minimal" size="minimal">
-                2 free posts
-              </Button>
+      <div className="container min-h-screen">
+        <div className="mt-4 flex flex-col items-stretch gap-8 sm:mt-8 md:flex-row">
+          <div className="w-full space-y-2 sm:border sm:p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-bold">Quick Actions</p>
+            </div>
+            <div className="bg-white text-sm">
+              <div className="flex items-center justify-center space-x-1 border bg-gray-50 p-4 text-black">
+                <p>{credit} premium credit</p>
+                <p>/</p>
+                <p>2 free posts</p>
+              </div>
+              <div className="mt-4 space-y-2">
+                <p>Buy Premium Credit</p>
+                <div className="flex items-center justify-between border p-2">
+                  <p>1 Credit</p>
+                  <div className="flex items-center gap-2">
+                    <p>MYR 49</p>
+                    <StripeButton
+                      email={email}
+                      priceId={VITE_STRIPE_PRICE_A_ID}
+                      buttonText="Buy"
+                      buttonProps={{ variant: "outline", size: "sm" }}
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between border p-2">
+                  <p>3 Credit</p>
+                  <div className="flex items-center gap-2">
+                    <p>MYR 99</p>
+                    <StripeButton
+                      email={email}
+                      priceId={VITE_STRIPE_PRICE_B_ID}
+                      buttonText="Buy"
+                      buttonProps={{ variant: "outline", size: "sm" }}
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between border border-gray-500 bg-gray-100 p-2">
+                  <div className="flex items-center gap-2">
+                    <p>5 Credit</p>
+                    <p className="bg-gray-800 px-2 py-0.5 text-xs text-white">
+                      Best Deal
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <p>MYR 149</p>
+                    <StripeButton
+                      email={email}
+                      priceId={VITE_STRIPE_PRICE_C_ID}
+                      buttonText="Buy"
+                      buttonProps={{ variant: "default", size: "sm" }}
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="mt-4 border bg-gray-50 p-4 text-gray-500">
+                <ul className="list-inside list-disc">
+                  <li>Credits never expire once purchased</li>
+                  <li>Use credits for premium job postings anytime</li>
+                  <li>Bulk packages offer better value</li>
+                </ul>
+              </div>
             </div>
           </div>
+          <div className="w-full space-y-2 sm:border sm:p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-bold">How Credit Works</p>
+            </div>
 
-          <div className="mt-2 max-w-md space-y-4 border bg-gray-50 p-4 text-sm">
-            <div>
-              <p>How to post jobs</p>
-              <ul className="list-inside list-disc">
-                <li>
-                  You can either post a <u>free listing</u> or{" "}
-                  <u>premium listing</u>
-                </li>
-                <li>Premium listing requires at least 1 credit</li>
-                <li>All listing will be hidden after 6 months</li>
-              </ul>
-            </div>
-            <div>
-              <p>Premium listing</p>
-              <ul className="list-inside list-disc">
-                <li>Requires 1 credit per job listing</li>
-                <li>Credit can be used anytime</li>
-                <li>Premium jobs will be featured for 30 days</li>
-              </ul>
-            </div>
-            <div>
-              <p>Free listing</p>
-              <ul className="list-inside list-disc">
-                <li>Will be pinned below premium listing for 7 days</li>
-                <li>Does not require any credit</li>
-                <li>Only 2 listing per month</li>
-                <li>Must share salary info</li>
-              </ul>
+            <div className="space-y-4 bg-white text-sm">
+              <div>
+                <p>Posting job</p>
+                <ul className="list-inside list-disc">
+                  <li>
+                    You can either post a <u>free listing</u> or{" "}
+                    <u>premium listing</u>
+                  </li>
+                  <li>Premium listing requires 1 credit per post</li>
+                  <li>All listing will be hidden after 6 months</li>
+                </ul>
+              </div>
+              <div>
+                <p>Premium listing</p>
+                <ul className="list-inside list-disc">
+                  <li>Premium jobs will be featured for 30 days</li>
+                  <li>Requires 1 credit per job listing</li>
+                  <li>Option to hide salary info</li>
+                </ul>
+              </div>
+              <div>
+                <p>Free listing</p>
+                <ul className="list-inside list-disc">
+                  <li>Will be pinned below premium listing for 7 days</li>
+                  <li>Does not require any credit</li>
+                  <li>Only 2 listing per month</li>
+                  <li>Must share salary info</li>
+                </ul>
+              </div>
             </div>
           </div>
         </div>
@@ -186,7 +218,11 @@ function StripeButton({
       <input type="hidden" value={email} name="email" />
       <input type="hidden" value={priceId} name="priceId" />
       <Button type="submit" {...buttonProps}>
-        {fetcher.state !== "idle" ? "Loading" : buttonText}
+        {fetcher.state !== "idle" ? (
+          <Loader2 className="animate-spin" />
+        ) : (
+          buttonText
+        )}
       </Button>
     </fetcher.Form>
   );

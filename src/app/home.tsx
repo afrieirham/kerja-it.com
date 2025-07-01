@@ -38,79 +38,81 @@ export default function Home(props: Route.ComponentProps) {
   const { jobs, q, page } = props.loaderData;
 
   return (
-    <div className="mx-auto max-w-6xl p-4">
+    <div>
       <Header />
-      <Form className="mt-4 flex items-center gap-2">
-        <Input
-          name="q"
-          placeholder="Search: Software Engineer"
-          className="max-w-md"
-          type="search"
-          defaultValue={q}
-        />
-        <Button type="submit">Search</Button>
-        {!!q && (
-          <Button variant="ghost" asChild>
-            <Link to={href("/")} reloadDocument>
-              Reset
-            </Link>
-          </Button>
-        )}
-      </Form>
-
-      <Suspense fallback={<p className="mt-4 text-sm">Loading...</p>}>
-        <Await
-          resolve={jobs}
-          errorElement={
-            <p className="mt-4 text-sm">
-              Could not fetch jobs, please try again.
-            </p>
-          }
-        >
-          {(jobs) => (
-            <>
-              <div className="mt-4">
-                <p className="text-xs text-gray-500">
-                  Showing {jobs.length} jobs
-                </p>
-              </div>
-
-              <main className="mt-4">
-                {jobs.length > 0 ? (
-                  jobs.map((job) => (
-                    <div key={job.id} className="mb-8">
-                      <p className="space-x-1.5">
-                        <a
-                          href={job.url}
-                          target="_blank"
-                          className="text-blue-500 visited:text-purple-900 hover:underline"
-                        >
-                          {parse(job.title)}
-                        </a>
-                        <span className="text-xs text-gray-500">
-                          {formatDistanceToNowStrict(job.createdAt)}
-                        </span>
-                      </p>
-                      <p className="mt-2 line-clamp-3 text-sm text-gray-800">
-                        {parse(job.description)}
-                      </p>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-gray-800">No jobs found.</p>
-                )}
-                <div>
-                  <PaginationButton
-                    q={q}
-                    page={page}
-                    itemLength={jobs.length}
-                  />
-                </div>
-              </main>
-            </>
+      <div className="container">
+        <Form className="mt-4 flex items-center gap-2">
+          <Input
+            name="q"
+            placeholder="Search: Software Engineer"
+            className="max-w-md"
+            type="search"
+            defaultValue={q}
+          />
+          <Button type="submit">Search</Button>
+          {!!q && (
+            <Button variant="ghost" asChild>
+              <Link to={href("/")} reloadDocument>
+                Reset
+              </Link>
+            </Button>
           )}
-        </Await>
-      </Suspense>
+        </Form>
+
+        <Suspense fallback={<p className="mt-4 text-sm">Loading...</p>}>
+          <Await
+            resolve={jobs}
+            errorElement={
+              <p className="mt-4 text-sm">
+                Could not fetch jobs, please try again.
+              </p>
+            }
+          >
+            {(jobs) => (
+              <>
+                <div className="mt-4">
+                  <p className="text-xs text-gray-500">
+                    Showing {jobs.length} jobs
+                  </p>
+                </div>
+
+                <main className="mt-4">
+                  {jobs.length > 0 ? (
+                    jobs.map((job) => (
+                      <div key={job.id} className="mb-8">
+                        <p className="space-x-1.5">
+                          <a
+                            href={job.url}
+                            target="_blank"
+                            className="text-blue-500 visited:text-purple-900 hover:underline"
+                          >
+                            {parse(job.title)}
+                          </a>
+                          <span className="text-xs text-gray-500">
+                            {formatDistanceToNowStrict(job.createdAt)}
+                          </span>
+                        </p>
+                        <p className="mt-2 line-clamp-3 text-sm text-gray-800">
+                          {parse(job.description)}
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-gray-800">No jobs found.</p>
+                  )}
+                  <div>
+                    <PaginationButton
+                      q={q}
+                      page={page}
+                      itemLength={jobs.length}
+                    />
+                  </div>
+                </main>
+              </>
+            )}
+          </Await>
+        </Suspense>
+      </div>
     </div>
   );
 }

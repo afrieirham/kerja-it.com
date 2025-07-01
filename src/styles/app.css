@@ -102,4 +102,8 @@ body {
   a.pending {
     @apply !animate-pulse;
   }
+
+  .container {
+    @apply mx-auto max-w-6xl px-4;
+  }
 }
