@@ -71,7 +71,7 @@ export async function action({ request }: Route.ActionArgs) {
 
       await db.recruiter.update({
         where: { email },
-        data: { jobCredit: { increment: creditAmount[productId] } },
+        data: { premiumCredit: { increment: creditAmount[productId] } },
       });
 
       break;

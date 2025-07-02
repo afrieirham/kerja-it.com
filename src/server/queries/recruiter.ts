@@ -5,7 +5,8 @@ export const syncUserData = async ({ clerkId }: { clerkId: string }) => {
   const user = await db.recruiter.findFirst({ where: { id: clerkId } });
   if (!user) {
     const clerkUser = await clerkClient.users.getUser(clerkId);
-    let credit = 0;
+    let freeCredit = 0;
+    let premiumCredit = 0;
     let email = "";
     if (clerkUser.primaryEmailAddress) {
       const user = await db.recruiter.upsert({
@@ -16,11 +17,16 @@ export const syncUserData = async ({ clerkId }: { clerkId: string }) => {
         },
         update: { email: clerkUser.primaryEmailAddress.emailAddress },
       });
-      credit = user.jobCredit;
+      premiumCredit = user.premiumCredit;
+      freeCredit = user.freeCredit;
       email = user.email;
     }
-    return { credit, email };
+    return { premiumCredit, freeCredit, email };
   }
 
-  return { credit: user.jobCredit, email: user.email };
+  return {
+    premiumCredit: user.premiumCredit,
+    freeCredit: user.freeCredit,
+    email: user.email,
+  };
 };

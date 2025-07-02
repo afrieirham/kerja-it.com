@@ -2,23 +2,11 @@
 import { href, Link, redirect, useFetcher } from "react-router";
 
 import { getAuth } from "@clerk/react-router/ssr.server";
-import type { RecruiterJob as RecruiterJobType } from "@prisma/client";
 import type { VariantProps } from "class-variance-authority";
 import { Loader2, Plus } from "lucide-react";
 import Stripe from "stripe";
 
 import { Header } from "@/components/header";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import {
   Breadcrumb,
@@ -95,21 +83,20 @@ export async function action(args: Route.ActionArgs) {
       return redirect(url);
     }
 
-    case "create-job": {
+    case "create-premium-job": {
       const newJob = await db.recruiterJob.create({
         data: {
           title: "Sample Job Title",
           applyUrl: "https://google.com",
           recruiterId: clerk.userId,
+          premium: true,
         },
       });
+      await db.recruiter.update({
+        where: { id: clerk.userId },
+        data: { premiumCredit: { decrement: 1 } },
+      });
       return redirect(href("/dashboard/:jobId/edit", { jobId: newJob.id }));
-    }
-
-    case "delete-job": {
-      const jobId = formData.get("jobId")?.toString();
-      await db.recruiterJob.delete({ where: { id: jobId } });
-      return redirect(href("/dashboard"));
     }
 
     default:
@@ -118,7 +105,7 @@ export async function action(args: Route.ActionArgs) {
 }
 
 export default function Dashboard({ loaderData }: Route.ComponentProps) {
-  const { credit, email, jobs } = loaderData;
+  const { freeCredit, premiumCredit, email, jobs } = loaderData;
 
   const {
     VITE_STRIPE_PRICE_A_ID,
@@ -131,7 +118,7 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
   return (
     <div className="mb-8">
       <Header />
-      <div className="container mt-4 min-h-screen space-y-8">
+      <div className="container mt-4 min-h-screen space-y-8 sm:space-y-4">
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>
@@ -139,16 +126,16 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
-        <section className="flex flex-col items-stretch gap-8 sm:mt-8 md:flex-row">
-          <div className="w-full space-y-2 sm:border sm:p-4">
+        <section className="flex flex-col items-stretch gap-8 md:flex-row">
+          <div className="w-full space-y-2 border-t pt-4 sm:border sm:p-4">
             <div className="flex items-center justify-between">
               <p className="text-sm font-bold">Quick Actions</p>
             </div>
             <div className="bg-white text-sm">
               <div className="flex items-center justify-center space-x-1 border bg-gray-50 p-4 text-black">
-                <p>{credit} premium credit</p>
+                <p>{premiumCredit} premium credit</p>
                 <p>/</p>
-                <p>2 free posts</p>
+                <p>{freeCredit} free posts</p>
               </div>
               <div className="mt-4 space-y-2">
                 <p>Buy Premium Credit</p>
@@ -201,7 +188,7 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
               </div>
             </div>
           </div>
-          <div className="w-full space-y-2 sm:border sm:p-4">
+          <div className="w-full space-y-2 border-t pt-4 sm:border sm:p-4">
             <div className="flex items-center justify-between">
               <p className="text-sm font-bold">How Credit Works</p>
             </div>
@@ -244,12 +231,16 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
           </div>
         </section>
         <section className="mt-4 flex flex-col items-stretch gap-8 sm:mt-8 md:flex-row">
-          <div className="w-full space-y-2 sm:border sm:p-4">
-            <div className="flex items-center justify-between border-b pb-2">
-              <p className="text-sm font-bold">Job Listings</p>
+          <div className="w-full space-y-2 border-t pt-4 sm:border sm:p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-bold">Premium Job Listings</p>
               <div className="space-x-2">
                 <fetcher.Form method="post">
-                  <input type="hidden" value="create-job" name="intent" />
+                  <input
+                    type="hidden"
+                    name="intent"
+                    value="create-premium-job"
+                  />
                   <Button
                     size="sm"
                     type="submit"
@@ -269,7 +260,33 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
             </div>
             <div className="mt-4 grid grid-cols-1 gap-4">
               {jobs.map((job) => (
-                <JobItem key={job.id} job={job} />
+                <div
+                  key={job.id}
+                  className="flex w-full items-center justify-between gap-2 border p-4 text-sm"
+                >
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      className="w-12"
+                      variant={job.live ? "default" : "outline"}
+                    >
+                      {job.live ? "Live" : "Draft"}
+                    </Badge>
+                    <p className="line-clamp-1">{job.title}</p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button variant="minimal" size="minimal">
+                      view
+                    </Button>
+                    <p>/</p>
+                    <Button variant="minimal" size="minimal">
+                      <Link
+                        to={href("/dashboard/:jobId/edit", { jobId: job.id })}
+                      >
+                        edit
+                      </Link>
+                    </Button>
+                  </div>
+                </div>
               ))}
             </div>
           </div>
@@ -297,7 +314,7 @@ function StripeButton({
       <input type="hidden" value={email} name="email" />
       <input type="hidden" value={priceId} name="priceId" />
       <input type="hidden" value="buy-credit" name="intent" />
-      <Button type="submit" {...buttonProps}>
+      <Button className="w-10" type="submit" {...buttonProps}>
         {fetcher.state !== "idle" ? (
           <Loader2 className="animate-spin" />
         ) : (
@@ -305,56 +322,5 @@ function StripeButton({
         )}
       </Button>
     </fetcher.Form>
-  );
-}
-
-function JobItem({ job }: { job: RecruiterJobType }) {
-  const fetcher = useFetcher();
-  return (
-    <div className="flex w-full items-center justify-between gap-2 border p-4 text-sm">
-      <div className="flex items-center gap-2">
-        <Badge variant={job.live ? "default" : "outline"}>
-          {job.live ? "Live" : "Draft"}
-        </Badge>
-        <p>/</p>
-        <p className="line-clamp-1">{job.title}</p>
-      </div>
-      <div className="flex items-center gap-1">
-        <Button variant="minimal" size="minimal">
-          <Link to={href("/dashboard/:jobId/edit", { jobId: job.id })}>
-            edit
-          </Link>
-        </Button>
-        <p>/</p>
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button type="button" variant="minimal" size="minimal">
-              {fetcher.state !== "idle" && fetcher.formMethod === "DELETE"
-                ? "deleting..."
-                : "delete"}
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This action cannot be undone. This will permanently delete the
-                job and remove its data from our servers.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <fetcher.Form method="delete">
-                <input type="hidden" name="intent" value="delete-job" />
-                <input type="hidden" name="jobId" value={job.id} />
-                <Button type="submit" variant="destructive" asChild>
-                  <AlertDialogAction>Delete</AlertDialogAction>
-                </Button>
-              </fetcher.Form>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </div>
-    </div>
   );
 }
