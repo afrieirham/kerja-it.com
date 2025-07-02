@@ -1,8 +1,23 @@
 /* eslint-disable @typescript-eslint/no-base-to-string */
 import { Suspense } from "react";
-import { Await, href, redirect, useFetcher, useNavigate } from "react-router";
+import {
+  Await,
+  href,
+  Link,
+  redirect,
+  useFetcher,
+  useNavigate,
+} from "react-router";
 
 import { Header } from "@/components/header";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -47,7 +62,19 @@ function AddJob({ loaderData }: Route.ComponentProps) {
     <div>
       <Header />
       <div className="container mt-4">
-        <p>Dashboard &gt; Edit Job</p>
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link to={href("/dashboard")}>Dashboard</Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>Edit Job</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
         <Suspense fallback={<p className="mt-4 text-sm">Loading...</p>}>
           <Await
             resolve={job}

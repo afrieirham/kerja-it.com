@@ -20,6 +20,12 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbList,
+  BreadcrumbPage,
+} from "@/components/ui/breadcrumb";
 import { Button, type buttonVariants } from "@/components/ui/button";
 import { env } from "@/env";
 import { db } from "@/server/db";
@@ -125,7 +131,14 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
   return (
     <div className="mb-8">
       <Header />
-      <div className="container mt-8 min-h-screen space-y-8">
+      <div className="container mt-4 min-h-screen space-y-8">
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbPage>Dashboard</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
         <section className="flex flex-col items-stretch gap-8 sm:mt-8 md:flex-row">
           <div className="w-full space-y-2 sm:border sm:p-4">
             <div className="flex items-center justify-between">
