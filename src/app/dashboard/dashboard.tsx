@@ -1,10 +1,8 @@
-/* eslint-disable @typescript-eslint/no-base-to-string */
 import { href, Link, redirect, useFetcher } from "react-router";
 
 import { getAuth } from "@clerk/react-router/ssr.server";
 import type { VariantProps } from "class-variance-authority";
 import { Loader2, Plus } from "lucide-react";
-import Stripe from "stripe";
 
 import { Header } from "@/components/header";
 import { Badge } from "@/components/ui/badge";
@@ -15,9 +13,9 @@ import {
   BreadcrumbPage,
 } from "@/components/ui/breadcrumb";
 import { Button, type buttonVariants } from "@/components/ui/button";
-import { env } from "@/env";
 import { createNewJob, getAllMyJob } from "@/server/queries/jobs";
 import {
+  decrementFreeCreditByOne,
   decrementPremiumCreditByOne,
   syncUserData,
 } from "@/server/queries/recruiter";
@@ -58,39 +56,21 @@ export async function action(args: Route.ActionArgs) {
   const intent = formData.get("intent");
 
   switch (intent) {
-    case "buy-credit": {
-      const priceId = formData.get("priceId")?.toString();
-      const email = formData.get("email")?.toString();
-
-      if (!email || !priceId) {
-        console.log("email and priceId is required");
-        return;
-      }
-
-      const stripe = new Stripe(env.STRIPE_SECRET_KEY);
-      const { url } = await stripe.checkout.sessions.create({
-        mode: "payment",
-        cancel_url: "http://localhost:5173/dashboard",
-        success_url: "http://localhost:5173/dashboard",
-        line_items: [{ price: priceId, quantity: 1 }],
-        customer_email: email,
-        customer_creation: "always",
-      });
-
-      if (!url) {
-        console.log("cannot create stripe checkout session");
-        return;
-      }
-
-      return redirect(url);
-    }
-
     case "create-premium-job": {
       const { jobId } = await createNewJob({
         userId: clerk.userId,
         premium: true,
       });
       await decrementPremiumCreditByOne({ userId: clerk.userId });
+      return redirect(href("/dashboard/:jobId/edit", { jobId }));
+    }
+
+    case "create-free-job": {
+      const { jobId } = await createNewJob({
+        userId: clerk.userId,
+        premium: false,
+      });
+      await decrementFreeCreditByOne({ userId: clerk.userId });
       return redirect(href("/dashboard/:jobId/edit", { jobId }));
     }
 
@@ -254,35 +234,96 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
               </div>
             </div>
             <div className="mt-4 grid grid-cols-1 gap-4">
-              {jobs.map((job) => (
-                <div
-                  key={job.id}
-                  className="flex w-full items-center justify-between gap-2 border p-4 text-sm"
-                >
-                  <div className="flex items-center gap-2">
-                    <Badge
-                      className="w-12"
-                      variant={job.live ? "default" : "outline"}
-                    >
-                      {job.live ? "Live" : "Draft"}
-                    </Badge>
-                    <p className="line-clamp-1">{job.title}</p>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Button variant="minimal" size="minimal">
-                      view
-                    </Button>
-                    <p>/</p>
-                    <Button variant="minimal" size="minimal">
-                      <Link
-                        to={href("/dashboard/:jobId/edit", { jobId: job.id })}
+              {jobs
+                .filter((job) => job.premium)
+                .map((job) => (
+                  <div
+                    key={job.id}
+                    className="flex w-full items-center justify-between gap-2 border p-4 text-sm"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        className="w-12"
+                        variant={job.live ? "default" : "outline"}
                       >
-                        edit
-                      </Link>
-                    </Button>
+                        {job.live ? "Live" : "Draft"}
+                      </Badge>
+                      <p className="line-clamp-1">{job.title}</p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button variant="minimal" size="minimal">
+                        view
+                      </Button>
+                      <p>/</p>
+                      <Button variant="minimal" size="minimal">
+                        <Link
+                          to={href("/dashboard/:jobId/edit", {
+                            jobId: job.id,
+                          })}
+                        >
+                          edit
+                        </Link>
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+            </div>
+          </div>
+          <div className="w-full space-y-2 border-t pt-4 sm:border sm:p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-bold">Free Job Listings</p>
+              <div className="space-x-2">
+                <fetcher.Form method="post">
+                  <input type="hidden" name="intent" value="create-free-job" />
+                  <Button
+                    size="sm"
+                    type="submit"
+                    variant="default"
+                    className="text-sm"
+                  >
+                    {fetcher.state !== "idle" &&
+                    fetcher.formMethod === "POST" ? (
+                      <Loader2 className="animate-spin" />
+                    ) : (
+                      <Plus />
+                    )}
+                    Create Job
+                  </Button>
+                </fetcher.Form>
+              </div>
+            </div>
+            <div className="mt-4 grid grid-cols-1 gap-4">
+              {jobs
+                .filter((job) => !job.premium)
+                .map((job) => (
+                  <div
+                    key={job.id}
+                    className="flex w-full items-center justify-between gap-2 border p-4 text-sm"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        className="w-12"
+                        variant={job.live ? "default" : "outline"}
+                      >
+                        {job.live ? "Live" : "Draft"}
+                      </Badge>
+                      <p className="line-clamp-1">{job.title}</p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button variant="minimal" size="minimal">
+                        view
+                      </Button>
+                      <p>/</p>
+                      <Button variant="minimal" size="minimal">
+                        <Link
+                          to={href("/dashboard/:jobId/edit", { jobId: job.id })}
+                        >
+                          edit
+                        </Link>
+                      </Button>
+                    </div>
+                  </div>
+                ))}
             </div>
           </div>
         </section>
@@ -304,11 +345,11 @@ function StripeButton({
     VariantProps<typeof buttonVariants>;
 }) {
   const fetcher = useFetcher();
+
   return (
-    <fetcher.Form method="post">
+    <fetcher.Form action={href("/api/stripe/checkout")} method="post">
       <input type="hidden" value={email} name="email" />
       <input type="hidden" value={priceId} name="priceId" />
-      <input type="hidden" value="buy-credit" name="intent" />
       <Button className="w-10" type="submit" {...buttonProps}>
         {fetcher.state !== "idle" ? (
           <Loader2 className="animate-spin" />

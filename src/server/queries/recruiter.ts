@@ -41,3 +41,14 @@ export const decrementPremiumCreditByOne = async ({
     data: { premiumCredit: { decrement: 1 } },
   });
 };
+
+export const decrementFreeCreditByOne = async ({
+  userId,
+}: {
+  userId: string;
+}) => {
+  await db.recruiter.update({
+    where: { id: userId },
+    data: { freeCredit: { decrement: 1 } },
+  });
+};
