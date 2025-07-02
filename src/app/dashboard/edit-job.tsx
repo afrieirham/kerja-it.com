@@ -26,6 +26,16 @@ import { db } from "@/server/db";
 import { getJobById } from "@/server/queries/jobs";
 import type { Route } from "./+types/edit-job";
 
+export function meta({}: Route.MetaArgs) {
+  return [
+    { title: "Kerja-IT.com | Edit Job" },
+    {
+      name: "description",
+      content: "IT jobs in Malaysia sourced from various job boards.",
+    },
+  ];
+}
+
 export async function loader(args: Route.LoaderArgs) {
   const job = getJobById({ id: args.params.jobId });
 
