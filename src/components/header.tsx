@@ -3,6 +3,7 @@ import {
   SignedOut,
   SignOutButton,
   SignUpButton,
+  useClerk,
   useUser,
 } from "@clerk/react-router";
 import { href, Link, NavLink } from "react-router";
@@ -11,6 +12,7 @@ import { Button } from "@/components/ui/button";
 
 export function Header() {
   const { user } = useUser();
+  const { openUserProfile } = useClerk();
 
   return (
     <div className="bg-white">
@@ -38,9 +40,9 @@ export function Header() {
               variant="minimal"
               size="minimal"
               className="lowercase"
-              asChild
+              onClick={() => openUserProfile()}
             >
-              <NavLink to={href("/profile")}>{user?.fullName}</NavLink>
+              {user?.fullName}
             </Button>
             {user && <p>/</p>}
             <Button variant="minimal" size="minimal" asChild>
