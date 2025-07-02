@@ -27,13 +27,13 @@ export function Header() {
             <Link to={href("/")}>Kerja-IT.com</Link>
           </Button>
         </div>
-        <SignedOut>
+        {/* <SignedOut>
           <SignUpButton>
             <Button variant="minimal" size="minimal">
               login
             </Button>
           </SignUpButton>
-        </SignedOut>
+        </SignedOut> */}
         <SignedIn>
           <div className="flex items-center gap-2 text-sm">
             <Button
