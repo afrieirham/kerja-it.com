@@ -15,6 +15,8 @@ import {
 import { Button, type buttonVariants } from "@/components/ui/button";
 import { createNewJob, getAllMyJob } from "@/server/queries/jobs";
 import {
+  checkFreeCredit,
+  checkPremiumCredit,
   decrementFreeCreditByOne,
   decrementPremiumCreditByOne,
   syncUserData,
@@ -57,21 +59,25 @@ export async function action(args: Route.ActionArgs) {
 
   switch (intent) {
     case "create-premium-job": {
-      const { jobId } = await createNewJob({
-        userId: clerk.userId,
-        premium: true,
-      });
-      await decrementPremiumCreditByOne({ userId: clerk.userId });
-      return redirect(href("/dashboard/:jobId/edit", { jobId }));
+      if (await checkPremiumCredit({ userId: clerk.userId })) {
+        const { jobId } = await createNewJob({
+          userId: clerk.userId,
+          premium: true,
+        });
+        await decrementPremiumCreditByOne({ userId: clerk.userId });
+        return redirect(href("/dashboard/:jobId/edit", { jobId }));
+      }
     }
 
     case "create-free-job": {
-      const { jobId } = await createNewJob({
-        userId: clerk.userId,
-        premium: false,
-      });
-      await decrementFreeCreditByOne({ userId: clerk.userId });
-      return redirect(href("/dashboard/:jobId/edit", { jobId }));
+      if (await checkFreeCredit({ userId: clerk.userId })) {
+        const { jobId } = await createNewJob({
+          userId: clerk.userId,
+          premium: false,
+        });
+        await decrementFreeCreditByOne({ userId: clerk.userId });
+        return redirect(href("/dashboard/:jobId/edit", { jobId }));
+      }
     }
 
     default:
@@ -208,7 +214,11 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
         <section className="mt-4 flex flex-col items-stretch gap-8 sm:mt-8 md:flex-row">
           <div className="w-full space-y-2 border-t pt-4 sm:border sm:p-4">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-bold">Premium Job Listings</p>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-bold">Premium Job Listings</p>
+                <p>/</p>
+                <p className="text-sm">{premiumCredit} premium credit</p>
+              </div>
               <div className="space-x-2">
                 <fetcher.Form method="post">
                   <input
@@ -221,6 +231,7 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
                     type="submit"
                     variant="default"
                     className="text-sm"
+                    disabled={premiumCredit === 0}
                   >
                     {fetcher.state !== "idle" &&
                     fetcher.formMethod === "POST" ? (
@@ -271,7 +282,11 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
           </div>
           <div className="w-full space-y-2 border-t pt-4 sm:border sm:p-4">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-bold">Free Job Listings</p>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-bold">Free Job Listings</p>
+                <p>/</p>
+                <p className="text-sm">{freeCredit} free posts left</p>
+              </div>
               <div className="space-x-2">
                 <fetcher.Form method="post">
                   <input type="hidden" name="intent" value="create-free-job" />
@@ -280,6 +295,7 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
                     type="submit"
                     variant="default"
                     className="text-sm"
+                    disabled={freeCredit === 0}
                   >
                     {fetcher.state !== "idle" &&
                     fetcher.formMethod === "POST" ? (

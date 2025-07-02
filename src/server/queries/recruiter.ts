@@ -52,3 +52,13 @@ export const decrementFreeCreditByOne = async ({
     data: { freeCredit: { decrement: 1 } },
   });
 };
+
+export const checkFreeCredit = async ({ userId }: { userId: string }) => {
+  const user = await db.recruiter.findFirst({ where: { id: userId } });
+  return Boolean(user?.freeCredit);
+};
+
+export const checkPremiumCredit = async ({ userId }: { userId: string }) => {
+  const user = await db.recruiter.findFirst({ where: { id: userId } });
+  return Boolean(user?.premiumCredit);
+};
