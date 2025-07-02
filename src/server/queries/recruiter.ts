@@ -30,3 +30,14 @@ export const syncUserData = async ({ clerkId }: { clerkId: string }) => {
     email: user.email,
   };
 };
+
+export const decrementPremiumCreditByOne = async ({
+  userId,
+}: {
+  userId: string;
+}) => {
+  await db.recruiter.update({
+    where: { id: userId },
+    data: { premiumCredit: { decrement: 1 } },
+  });
+};

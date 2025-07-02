@@ -16,9 +16,11 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Button, type buttonVariants } from "@/components/ui/button";
 import { env } from "@/env";
-import { db } from "@/server/db";
-import { getAllMyJob } from "@/server/queries/jobs";
-import { syncUserData } from "@/server/queries/recruiter";
+import { createNewJob, getAllMyJob } from "@/server/queries/jobs";
+import {
+  decrementPremiumCreditByOne,
+  syncUserData,
+} from "@/server/queries/recruiter";
 import type { Route } from "./+types/dashboard";
 
 export function meta({}: Route.MetaArgs) {
@@ -84,19 +86,12 @@ export async function action(args: Route.ActionArgs) {
     }
 
     case "create-premium-job": {
-      const newJob = await db.recruiterJob.create({
-        data: {
-          title: "Sample Job Title",
-          applyUrl: "https://google.com",
-          recruiterId: clerk.userId,
-          premium: true,
-        },
+      const { jobId } = await createNewJob({
+        userId: clerk.userId,
+        premium: true,
       });
-      await db.recruiter.update({
-        where: { id: clerk.userId },
-        data: { premiumCredit: { decrement: 1 } },
-      });
-      return redirect(href("/dashboard/:jobId/edit", { jobId: newJob.id }));
+      await decrementPremiumCreditByOne({ userId: clerk.userId });
+      return redirect(href("/dashboard/:jobId/edit", { jobId }));
     }
 
     default:

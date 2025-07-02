@@ -45,3 +45,21 @@ export const getAllMyJob = async ({ id }: { id: string }) => {
   });
   return jobs;
 };
+
+export const createNewJob = async ({
+  userId,
+  premium,
+}: {
+  userId: string;
+  premium: boolean;
+}) => {
+  const newJob = await db.recruiterJob.create({
+    data: {
+      title: "Sample Job Title",
+      applyUrl: "https://sample-url.com",
+      recruiterId: userId,
+      premium,
+    },
+  });
+  return { jobId: newJob.id };
+};
