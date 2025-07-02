@@ -1,6 +1,6 @@
 import { env } from "@/env";
 import { db } from "@/server/db";
-import type { Route } from "./+types/cron-insert";
+import type { Route } from "./+types/save-jobs";
 
 export function loader(_: Route.LoaderArgs) {
   return Response.json({ message: "nothing to see here" });
