@@ -366,7 +366,7 @@ function StripeButton({
     <fetcher.Form action={href("/api/stripe/checkout")} method="post">
       <input type="hidden" value={email} name="email" />
       <input type="hidden" value={priceId} name="priceId" />
-      <Button className="w-10" type="submit" {...buttonProps}>
+      <Button className="w-10" type="submit" disabled {...buttonProps}>
         {fetcher.state !== "idle" ? (
           <Loader2 className="animate-spin" />
         ) : (
