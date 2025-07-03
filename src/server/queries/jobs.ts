@@ -1,14 +1,14 @@
-import { EXTERNAL_LIST_PAGE_SIZE } from "@/config";
 import { db } from "@/server/db";
 
-export const getAllJobs = async ({
+export const getAllExternalJobs = async ({
   searchTerm,
   page,
+  pageSize,
 }: {
   searchTerm: string;
   page: number;
+  pageSize: number;
 }) => {
-  const pageSize = EXTERNAL_LIST_PAGE_SIZE;
   const jobs = await db.job.findMany({
     orderBy: [{ createdAt: "desc" }, { title: "asc" }],
     where: {

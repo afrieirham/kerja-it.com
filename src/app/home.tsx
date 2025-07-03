@@ -3,16 +3,15 @@ import { Await, href, Link } from "react-router";
 
 import { formatDistanceToNowStrict } from "date-fns";
 import parse from "html-react-parser";
-import qs from "query-string";
 
 import { Header } from "@/components/header";
+import { Button } from "@/components/ui/button";
 import {
-  getAllJobs,
+  getAllExternalJobs,
   getAllLiveFreeJobs,
   getAllLivePremiumJobs,
 } from "@/server/queries/jobs";
 import type { Route } from "./+types/home";
-import { Button } from "@/components/ui/button";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -24,19 +23,12 @@ export function meta({}: Route.MetaArgs) {
   ];
 }
 
-export async function loader({ request }: Route.LoaderArgs) {
-  const url = qs.parseUrl(request.url);
-
-  const { q, query, p } = url.query;
-
-  const searchTerm = q ?? query ?? "";
-  const page = p ? Number(p) : 1;
-
-  const jobs = getAllJobs({ searchTerm: String(searchTerm), page });
+export async function loader({}: Route.LoaderArgs) {
+  const jobs = getAllExternalJobs({ searchTerm: "", page: 1, pageSize: 10 });
   const premiumJobs = await getAllLivePremiumJobs();
   const freeJobs = await getAllLiveFreeJobs();
 
-  return { jobs, q: String(searchTerm), page, premiumJobs, freeJobs };
+  return { jobs, premiumJobs, freeJobs };
 }
 
 export default function Home(props: Route.ComponentProps) {

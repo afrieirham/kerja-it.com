@@ -8,9 +8,10 @@ import qs from "query-string";
 import { Header } from "@/components/header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { getAllJobs } from "@/server/queries/jobs";
+import { getAllExternalJobs } from "@/server/queries/jobs";
 import type { Route } from "./+types/external-list";
-import { EXTERNAL_LIST_PAGE_SIZE } from "@/config";
+
+const PAGE_SIZE = 50;
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -30,7 +31,11 @@ export async function loader({ request }: Route.LoaderArgs) {
   const searchTerm = q ?? query ?? "";
   const page = p ? Number(p) : 1;
 
-  const jobs = getAllJobs({ searchTerm: String(searchTerm), page });
+  const jobs = getAllExternalJobs({
+    searchTerm: String(searchTerm),
+    page,
+    pageSize: PAGE_SIZE,
+  });
 
   return { jobs, q: String(searchTerm), page };
 }
@@ -149,7 +154,7 @@ function PaginationButton({
 
         <button
           type="submit"
-          disabled={itemLength !== EXTERNAL_LIST_PAGE_SIZE}
+          disabled={itemLength !== PAGE_SIZE}
           className="cursor-pointer hover:underline disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:no-underline"
         >
           next
