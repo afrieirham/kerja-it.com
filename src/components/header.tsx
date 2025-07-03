@@ -34,45 +34,47 @@ export function Header() {
             <Link to={href("/")}>Kerja-IT.com</Link>
           </Button>
         </div>
-        <SignedOut>
-          <div className="flex items-center gap-2 text-sm">
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="minimal" size="minimal">
-                  post a job
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle className="text-lg font-medium sm:text-xl">
-                    Sign in to helps us filter spams!
-                  </DialogTitle>
-                </DialogHeader>
-                <div className="flex flex-col gap-2 text-sm text-black">
-                  <p>
-                    Signing in helps us keep spam at bay. After logged in, you
-                    can easily post job listings for free.
-                  </p>
-                  <p>
-                    Thank you for helping us maintain a trustworthy job board!
-                  </p>
-                </div>
-                <SignUpButton>
-                  <Button className="mt-4">
-                    <GoogleSVG />
-                    <span>Sign in with Google</span>
+        {import.meta.env.VITE_FT_ALLOW_LOGIN === "true" && (
+          <SignedOut>
+            <div className="flex items-center gap-2 text-sm">
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="minimal" size="minimal">
+                    post a job
                   </Button>
-                </SignUpButton>
-              </DialogContent>
-            </Dialog>
-            <p>/</p>
-            <SignUpButton>
-              <Button variant="minimal" size="minimal">
-                login
-              </Button>
-            </SignUpButton>
-          </div>
-        </SignedOut>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle className="text-lg font-medium sm:text-xl">
+                      Sign in to helps us filter spams!
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div className="flex flex-col gap-2 text-sm text-black">
+                    <p>
+                      Signing in helps us keep spam at bay. After logged in, you
+                      can easily post job listings for free.
+                    </p>
+                    <p>
+                      Thank you for helping us maintain a trustworthy job board!
+                    </p>
+                  </div>
+                  <SignUpButton>
+                    <Button className="mt-4">
+                      <GoogleSVG />
+                      <span>Sign in with Google</span>
+                    </Button>
+                  </SignUpButton>
+                </DialogContent>
+              </Dialog>
+              <p>/</p>
+              <SignUpButton>
+                <Button variant="minimal" size="minimal">
+                  login
+                </Button>
+              </SignUpButton>
+            </div>
+          </SignedOut>
+        )}
         <SignedIn>
           <div className="flex items-center gap-2 text-sm">
             <Button

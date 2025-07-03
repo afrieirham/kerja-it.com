@@ -5,6 +5,7 @@ interface ImportMetaEnv {
   readonly VITE_STRIPE_PRICE_A_ID: string;
   readonly VITE_STRIPE_PRICE_B_ID: string;
   readonly VITE_STRIPE_PRICE_C_ID: string;
+  readonly VITE_FT_ALLOW_LOGIN: string;
 }
 
 interface ImportMeta {
