@@ -1,15 +1,18 @@
 import { Suspense } from "react";
-import { Await, Form, href, Link } from "react-router";
+import { Await, href, Link } from "react-router";
 
 import { formatDistanceToNowStrict } from "date-fns";
 import parse from "html-react-parser";
 import qs from "query-string";
 
 import { Header } from "@/components/header";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { getAllJobs } from "@/server/queries/jobs";
+import {
+  getAllJobs,
+  getAllLiveFreeJobs,
+  getAllLivePremiumJobs,
+} from "@/server/queries/jobs";
 import type { Route } from "./+types/home";
+import { Button } from "@/components/ui/button";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -30,36 +33,62 @@ export async function loader({ request }: Route.LoaderArgs) {
   const page = p ? Number(p) : 1;
 
   const jobs = getAllJobs({ searchTerm: String(searchTerm), page });
+  const premiumJobs = await getAllLivePremiumJobs();
+  const freeJobs = await getAllLiveFreeJobs();
 
-  return { jobs, q: String(searchTerm), page };
+  return { jobs, q: String(searchTerm), page, premiumJobs, freeJobs };
 }
 
 export default function Home(props: Route.ComponentProps) {
-  const { jobs, q, page } = props.loaderData;
+  const { jobs, premiumJobs, freeJobs } = props.loaderData;
 
   return (
     <div>
       <Header />
-      <div className="container">
-        <Form className="mt-4 flex items-center gap-2">
-          <Input
-            name="q"
-            placeholder="Search: Software Engineer"
-            className="max-w-md"
-            type="search"
-            defaultValue={q}
-          />
-          <Button type="submit">Search</Button>
-          {!!q && (
-            <Button variant="ghost" asChild>
-              <Link to={href("/")} reloadDocument>
-                Reset
-              </Link>
-            </Button>
-          )}
-        </Form>
+      <div className="container space-y-8 py-4">
+        {premiumJobs.length > 0 && (
+          <section>
+            <p>Featured Jobs</p>
+            <div className="mt-2 grid grid-cols-1 gap-2">
+              {premiumJobs.map((job) => (
+                <div key={job.id} className="border bg-gray-100 p-4">
+                  <a
+                    href={job.applyUrl}
+                    className="text-blue-500 visited:text-purple-900 hover:underline"
+                  >
+                    {job.title}
+                  </a>
+                  <p className="mt-2 line-clamp-6 text-sm sm:line-clamp-4">
+                    {job.description}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
-        <Suspense fallback={<p className="mt-4 text-sm">Loading...</p>}>
+        {freeJobs.length > 0 && (
+          <section>
+            <p>More from our partner</p>
+            <div className="mt-2 grid grid-cols-1 gap-2">
+              {freeJobs.map((job) => (
+                <div key={job.id} className="border p-4">
+                  <a
+                    href={job.applyUrl}
+                    className="text-blue-500 visited:text-purple-900 hover:underline"
+                  >
+                    {job.title}
+                  </a>
+                  <p className="mt-2 line-clamp-6 text-sm sm:line-clamp-4">
+                    {job.description}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <Suspense fallback={<p className="text-sm">Loading...</p>}>
           <Await
             resolve={jobs}
             errorElement={
@@ -69,91 +98,39 @@ export default function Home(props: Route.ComponentProps) {
             }
           >
             {(jobs) => (
-              <>
-                <div className="mt-4">
-                  <p className="text-xs text-gray-500">
-                    Showing {jobs.length} jobs
-                  </p>
+              <section>
+                <p>Collected from Top Sites</p>
+                <div className="mt-2 grid grid-cols-1 gap-2">
+                  {jobs.map((job) => (
+                    <div key={job.id} className="border p-4">
+                      <p className="space-x-1.5">
+                        <a
+                          href={job.url}
+                          target="_blank"
+                          className="text-blue-500 visited:text-purple-900 hover:underline"
+                        >
+                          {parse(job.title)}
+                        </a>
+                        <span className="text-xs text-gray-500">
+                          {formatDistanceToNowStrict(job.createdAt)}
+                        </span>
+                      </p>
+                      <p className="mt-2 line-clamp-3 text-sm text-gray-800">
+                        {parse(job.description)}
+                      </p>
+                    </div>
+                  ))}
                 </div>
-
-                <main className="mt-4">
-                  {jobs.length > 0 ? (
-                    jobs.map((job) => (
-                      <div key={job.id} className="mb-8">
-                        <p className="space-x-1.5">
-                          <a
-                            href={job.url}
-                            target="_blank"
-                            className="text-blue-500 visited:text-purple-900 hover:underline"
-                          >
-                            {parse(job.title)}
-                          </a>
-                          <span className="text-xs text-gray-500">
-                            {formatDistanceToNowStrict(job.createdAt)}
-                          </span>
-                        </p>
-                        <p className="mt-2 line-clamp-3 text-sm text-gray-800">
-                          {parse(job.description)}
-                        </p>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-gray-800">No jobs found.</p>
-                  )}
-                  <div>
-                    <PaginationButton
-                      q={q}
-                      page={page}
-                      itemLength={jobs.length}
-                    />
-                  </div>
-                </main>
-              </>
+                <div className="mt-4">
+                  <Button variant="outline" size="sm" asChild>
+                    <Link to={href("/across-the-web")}>Show more</Link>
+                  </Button>
+                </div>
+              </section>
             )}
           </Await>
         </Suspense>
       </div>
-    </div>
-  );
-}
-
-function PaginationButton({
-  q,
-  page,
-  itemLength,
-}: {
-  q: string;
-  page: number;
-  itemLength: number;
-}) {
-  if (itemLength === 0) return null;
-
-  return (
-    <div className="mx-auto flex w-full items-center gap-4 text-sm">
-      <Form>
-        {q && <input type="hidden" name="q" value={q} />}
-        <input type="hidden" name="p" value={page - 1} />
-
-        <button
-          type="submit"
-          disabled={page === 1}
-          className="cursor-pointer hover:underline disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:no-underline"
-        >
-          prev
-        </button>
-      </Form>
-      <Form>
-        {q && <input type="hidden" name="q" value={q} />}
-        <input type="hidden" name="p" value={page + 1} />
-
-        <button
-          type="submit"
-          disabled={itemLength !== 50}
-          className="cursor-pointer hover:underline disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:no-underline"
-        >
-          next
-        </button>
-      </Form>
     </div>
   );
 }

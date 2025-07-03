@@ -1,0 +1,1 @@
+export const EXTERNAL_LIST_PAGE_SIZE = 10;

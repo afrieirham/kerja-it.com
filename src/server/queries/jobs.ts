@@ -1,3 +1,4 @@
+import { EXTERNAL_LIST_PAGE_SIZE } from "@/config";
 import { db } from "@/server/db";
 
 export const getAllJobs = async ({
@@ -7,7 +8,7 @@ export const getAllJobs = async ({
   searchTerm: string;
   page: number;
 }) => {
-  const pageSize = 50;
+  const pageSize = EXTERNAL_LIST_PAGE_SIZE;
   const jobs = await db.job.findMany({
     orderBy: [{ createdAt: "desc" }, { title: "asc" }],
     where: {
@@ -62,4 +63,17 @@ export const createNewJob = async ({
     },
   });
   return { jobId: newJob.id };
+};
+
+export const getAllLiveFreeJobs = async () => {
+  return await db.recruiterJob.findMany({
+    where: { live: true, premium: false },
+    take: 10,
+  });
+};
+
+export const getAllLivePremiumJobs = async () => {
+  return await db.recruiterJob.findMany({
+    where: { live: true, premium: true },
+  });
 };

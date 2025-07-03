@@ -2,6 +2,7 @@ import { type RouteConfig, index, route } from "@react-router/dev/routes";
 
 export default [
   index("home.tsx"),
+  route("across-the-web", "external-list.tsx"),
   route("dashboard", "dashboard/dashboard.tsx"),
   route("dashboard/:jobId/edit", "dashboard/edit-job.tsx"),
   route("api/cron/save-jobs", "api/cron/save-jobs.ts"),
