@@ -4,7 +4,7 @@ import { recruiter, recruiterJob } from "./schema";
 export const recruiterJobRelations = relations(recruiterJob, ({ one }) => ({
 	recruiter: one(recruiter, {
 		fields: [recruiterJob.recruiterId],
-		references: [recruiter.id]
+		references: [recruiter.id],
 	}),
 }));
 
