@@ -30,6 +30,7 @@ import { Table, TableBody, TableCell, TableRow } from "~/components/core/table";
 import { Header } from "~/components/widget/header";
 import { db } from "~/db";
 import { job } from "~/db/schema";
+import { searchCareerjet } from "~/lib/careerjet.server";
 import {
 	FILTER_DIMENSIONS,
 	FILTER_KEYS,
@@ -69,11 +70,12 @@ function formatPostedAt(createdAt: string) {
 	return postedDateFormatter.format(parseCreatedAt(createdAt));
 }
 
-function relativeTime(createdAt: string, now = Date.now()) {
-	const minutes = Math.max(
-		0,
-		Math.floor((now - parseCreatedAt(createdAt).getTime()) / 60_000),
-	);
+function formatPostedAtFromIso(iso: string) {
+	return postedDateFormatter.format(new Date(iso));
+}
+
+function relativeFromMs(ms: number, now = Date.now()) {
+	const minutes = Math.max(0, Math.floor((now - ms) / 60_000));
 	const hours = Math.floor(minutes / 60);
 	const days = Math.floor(hours / 24);
 	const months = Math.floor(days / 30);
@@ -82,6 +84,14 @@ function relativeTime(createdAt: string, now = Date.now()) {
 	if (days >= 1) return relativeTimeFormatter.format(-days, "day");
 	if (hours >= 1) return relativeTimeFormatter.format(-hours, "hour");
 	return relativeTimeFormatter.format(-Math.max(1, minutes), "minute");
+}
+
+function relativeTime(createdAt: string, now = Date.now()) {
+	return relativeFromMs(parseCreatedAt(createdAt).getTime(), now);
+}
+
+function relativeTimeFromIso(iso: string, now = Date.now()) {
+	return relativeFromMs(new Date(iso).getTime(), now);
 }
 
 function escapeLike(value: string) {
@@ -150,7 +160,13 @@ export async function loader({ request }: Route.LoaderArgs) {
 		gte(job.createdAt, sql`CURRENT_TIMESTAMP - INTERVAL '3 months'`),
 	);
 
-	const [jobs, total] = await Promise.all([
+	// Sponsored jobs are proxied per-request: Careerjet requires the visitor's
+	// own ip/user-agent for click attribution, so skip the call without an ip.
+	const userIp = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+	const roleOption = findFilterOption("role", filters.role);
+	const locationOption = findFilterOption("location", filters.location);
+
+	const [jobs, total, sponsored] = await Promise.all([
 		db
 			.select()
 			.from(job)
@@ -159,10 +175,20 @@ export async function loader({ request }: Route.LoaderArgs) {
 			.limit(PAGE_SIZE)
 			.offset((page - 1) * PAGE_SIZE),
 		db.$count(job, where),
+		userIp
+			? searchCareerjet({
+					keywords: q || roleOption?.label || "software",
+					location: locationOption?.label ?? null,
+					sort: q || roleOption ? "relevance" : "date",
+					userIp,
+					userAgent: request.headers.get("user-agent") ?? "",
+				})
+			: Promise.resolve([]),
 	]);
 
 	return {
 		jobs: jobs.map((j) => ({ ...j, postedAgo: relativeTime(j.createdAt) })),
+		sponsored,
 		page,
 		totalPages: Math.max(1, Math.ceil(total / PAGE_SIZE)),
 		total,
@@ -207,7 +233,7 @@ function FilterSelect({
 }
 
 export default function Home({ loaderData }: Route.ComponentProps) {
-	const { jobs, page, totalPages, total, q, filters } = loaderData;
+	const { jobs, sponsored, page, totalPages, total, q, filters } = loaderData;
 	const navigate = useNavigate();
 
 	const activeFilters = FILTER_KEYS.flatMap((key) => {
@@ -303,6 +329,37 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
 				<Table>
 					<TableBody>
+						{sponsored.map((s) => (
+							<TableRow key={s.id}>
+								<TableCell>
+									<div className="truncate">
+										<a
+											href={s.url}
+											target="_blank"
+											rel="sponsored nofollow noopener"
+											className="font-medium hover:underline"
+										>
+											{s.title}
+										</a>
+										{(s.company || s.salary) && (
+											<span className="text-muted-foreground">
+												{s.company ? ` · ${s.company}` : ""}
+												{s.salary ? ` · ${s.salary}` : ""}
+											</span>
+										)}
+									</div>
+								</TableCell>
+								<TableCell>
+									<Badge variant="outline">Sponsored</Badge>
+								</TableCell>
+								<TableCell
+									className="text-muted-foreground"
+									title={s.date ? formatPostedAtFromIso(s.date) : undefined}
+								>
+									{s.date ? relativeTimeFromIso(s.date) : "—"}
+								</TableCell>
+							</TableRow>
+						))}
 						{jobs.map((j) => (
 							<TableRow key={j.id}>
 								<TableCell>
@@ -328,6 +385,20 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 						))}
 					</TableBody>
 				</Table>
+
+				{sponsored.length > 0 && (
+					<p className="text-muted-foreground text-xs">
+						Sponsored jobs by{" "}
+						<a
+							href="https://www.careerjet.com"
+							target="_blank"
+							rel="noopener"
+							className="underline hover:text-foreground"
+						>
+							Careerjet
+						</a>
+					</p>
+				)}
 
 				<Pagination>
 					<PaginationContent>

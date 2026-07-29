@@ -19,10 +19,15 @@ gotchas an agent is likely to miss.
   `biome.json`). `npm run format` only formats (`biome format --write`).
 - Biome style: tabs, double quotes, organize-imports on save (assist).
 - **Env trap:** `app/env.server.ts` validates env at import time via
-  `@t3-oss/env-core` + zod. `CRON_API_KEY` is required but missing from
-  `.env.example` — add it manually or `npm run dev` and every `db:*` script
-  crash (`drizzle.config.ts` imports `./app/env.server`). Client-side env
-  only via `VITE_`-prefixed vars in `app/env.client.ts`.
+  `@t3-oss/env-core` + zod — a missing required var crashes `npm run dev`
+  and every `db:*` script (`drizzle.config.ts` imports `./app/env.server`).
+  `CAREERJET_API_KEY` is optional: unset just disables sponsored jobs.
+  Client-side env only via `VITE_`-prefixed vars in `app/env.client.ts`.
+- Sponsored jobs come from Careerjet (`app/lib/careerjet.server.ts`),
+  fetched **per-request in the home loader** with the visitor's
+  ip/user-agent (Careerjet requires both for click attribution) — never
+  cron-ingest these into the DB. It fails open (returns `[]`) on any
+  error and regex-filters results down to tech titles only.
 - Path alias `~/*` → `./app/*`.
 - shadcn: generated UI lives in `~/components/core` (not `ui`), built on
   `@base-ui/react` (not Radix), lucide icons. App-specific components go in
