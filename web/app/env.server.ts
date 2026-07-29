@@ -8,6 +8,9 @@ export const env = createEnv({
 		CRON_API_KEY: z.string(),
 		// Optional — unset just disables sponsored jobs from Careerjet.
 		CAREERJET_API_KEY: z.string().optional(),
+		// Optional — fallback visitor ip for local dev (browsers don't send
+		// x-forwarded-for, so without this sponsored jobs are skipped locally).
+		CAREERJET_DEV_IP: z.string().optional(),
 	},
 	runtimeEnv: process.env,
 	emptyStringAsUndefined: true,

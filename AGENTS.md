@@ -27,7 +27,9 @@ gotchas an agent is likely to miss.
   fetched **per-request in the home loader** with the visitor's
   ip/user-agent (Careerjet requires both for click attribution) — never
   cron-ingest these into the DB. It fails open (returns `[]`) on any
-  error and regex-filters results down to tech titles only.
+  error and regex-filters results down to tech titles only. Local dev has
+  no `x-forwarded-for`; set optional `CAREERJET_DEV_IP` (your whitelisted
+  public ip) to test sponsored jobs locally.
 - Path alias `~/*` → `./app/*`.
 - shadcn: generated UI lives in `~/components/core` (not `ui`), built on
   `@base-ui/react` (not Radix), lucide icons. App-specific components go in

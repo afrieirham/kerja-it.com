@@ -43,6 +43,13 @@ import type { Route } from "./+types/home";
 
 const PAGE_SIZE = 100;
 
+// Sponsored rows: one interleaved every N owned rows; leftovers trail at
+// the end so short/empty result sets still show them.
+const SPONSORED_EVERY = 10;
+
+type JobItem = Route.ComponentProps["loaderData"]["jobs"][number];
+type SponsoredItem = Route.ComponentProps["loaderData"]["sponsored"][number];
+
 const ALL_LABELS = {
 	role: "All Roles",
 	seniority: "All Seniorities",
@@ -161,7 +168,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 	);
 
 	// Sponsored jobs are proxied per-request: Careerjet requires the visitor's
-	// own ip/user-agent for click attribution, so skip the call without an ip.
+	// own ip/user-agent for click attribution. Locally there is no
+	// x-forwarded-for — searchCareerjet falls back to CAREERJET_DEV_IP.
 	const userIp = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
 	const roleOption = findFilterOption("role", filters.role);
 	const locationOption = findFilterOption("location", filters.location);
@@ -175,15 +183,13 @@ export async function loader({ request }: Route.LoaderArgs) {
 			.limit(PAGE_SIZE)
 			.offset((page - 1) * PAGE_SIZE),
 		db.$count(job, where),
-		userIp
-			? searchCareerjet({
-					keywords: q || roleOption?.label || "software",
-					location: locationOption?.label ?? null,
-					sort: q || roleOption ? "relevance" : "date",
-					userIp,
-					userAgent: request.headers.get("user-agent") ?? "",
-				})
-			: Promise.resolve([]),
+		searchCareerjet({
+			keywords: q || roleOption?.label || "software",
+			location: locationOption?.label ?? null,
+			sort: q || roleOption ? "relevance" : "date",
+			userIp: userIp ?? null,
+			userAgent: request.headers.get("user-agent") ?? "",
+		}),
 	]);
 
 	return {
@@ -232,9 +238,86 @@ function FilterSelect({
 	);
 }
 
+function JobTableRow({ j }: { j: JobItem }) {
+	return (
+		<TableRow>
+			<TableCell>
+				<a
+					href={j.url}
+					target="_blank"
+					rel="noreferrer"
+					className="block w-full max-w-4xl truncate font-medium hover:underline"
+				>
+					{j.title}
+				</a>
+			</TableCell>
+			<TableCell>
+				<Badge variant="secondary">{j.source}</Badge>
+			</TableCell>
+			<TableCell
+				className="text-muted-foreground"
+				title={formatPostedAt(j.createdAt)}
+			>
+				{j.postedAgo}
+			</TableCell>
+		</TableRow>
+	);
+}
+
+function SponsoredTableRow({ s }: { s: SponsoredItem }) {
+	return (
+		<TableRow>
+			<TableCell>
+				<div className="truncate">
+					<a
+						href={s.url}
+						target="_blank"
+						rel="sponsored nofollow noopener"
+						className="font-medium hover:underline"
+					>
+						{s.title}
+					</a>
+					{(s.company || s.salary) && (
+						<span className="text-muted-foreground">
+							{s.company ? ` · ${s.company}` : ""}
+							{s.salary ? ` · ${s.salary}` : ""}
+						</span>
+					)}
+				</div>
+			</TableCell>
+			<TableCell>
+				<Badge variant="outline">Sponsored</Badge>
+			</TableCell>
+			<TableCell
+				className="text-muted-foreground"
+				title={s.date ? formatPostedAtFromIso(s.date) : undefined}
+			>
+				{s.date ? relativeTimeFromIso(s.date) : "—"}
+			</TableCell>
+		</TableRow>
+	);
+}
+
 export default function Home({ loaderData }: Route.ComponentProps) {
 	const { jobs, sponsored, page, totalPages, total, q, filters } = loaderData;
 	const navigate = useNavigate();
+
+	// Merge owned + sponsored rows: interleaved, leftovers trailing.
+	const rows: Array<
+		| { type: "job"; value: JobItem }
+		| { type: "sponsored"; value: SponsoredItem }
+	> = [];
+	let sponsoredIdx = 0;
+	for (const [i, j] of jobs.entries()) {
+		rows.push({ type: "job", value: j });
+		if ((i + 1) % SPONSORED_EVERY === 0 && sponsoredIdx < sponsored.length) {
+			rows.push({ type: "sponsored", value: sponsored[sponsoredIdx] });
+			sponsoredIdx++;
+		}
+	}
+	for (; sponsoredIdx < sponsored.length; sponsoredIdx++) {
+		rows.push({ type: "sponsored", value: sponsored[sponsoredIdx] });
+	}
 
 	const activeFilters = FILTER_KEYS.flatMap((key) => {
 		const option = findFilterOption(key, filters[key]);
@@ -329,60 +412,13 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
 				<Table>
 					<TableBody>
-						{sponsored.map((s) => (
-							<TableRow key={s.id}>
-								<TableCell>
-									<div className="truncate">
-										<a
-											href={s.url}
-											target="_blank"
-											rel="sponsored nofollow noopener"
-											className="font-medium hover:underline"
-										>
-											{s.title}
-										</a>
-										{(s.company || s.salary) && (
-											<span className="text-muted-foreground">
-												{s.company ? ` · ${s.company}` : ""}
-												{s.salary ? ` · ${s.salary}` : ""}
-											</span>
-										)}
-									</div>
-								</TableCell>
-								<TableCell>
-									<Badge variant="outline">Sponsored</Badge>
-								</TableCell>
-								<TableCell
-									className="text-muted-foreground"
-									title={s.date ? formatPostedAtFromIso(s.date) : undefined}
-								>
-									{s.date ? relativeTimeFromIso(s.date) : "—"}
-								</TableCell>
-							</TableRow>
-						))}
-						{jobs.map((j) => (
-							<TableRow key={j.id}>
-								<TableCell>
-									<a
-										href={j.url}
-										target="_blank"
-										rel="noreferrer"
-										className="block w-full truncate font-medium hover:underline"
-									>
-										{j.title}
-									</a>
-								</TableCell>
-								<TableCell>
-									<Badge variant="secondary">{j.source}</Badge>
-								</TableCell>
-								<TableCell
-									className="text-muted-foreground"
-									title={formatPostedAt(j.createdAt)}
-								>
-									{j.postedAgo}
-								</TableCell>
-							</TableRow>
-						))}
+						{rows.map((row) =>
+							row.type === "job" ? (
+								<JobTableRow key={row.value.id} j={row.value} />
+							) : (
+								<SponsoredTableRow key={row.value.id} s={row.value} />
+							),
+						)}
 					</TableBody>
 				</Table>
 
