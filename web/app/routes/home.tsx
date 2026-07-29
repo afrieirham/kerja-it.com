@@ -43,6 +43,13 @@ import type { Route } from "./+types/home";
 
 const PAGE_SIZE = 100;
 
+// Sponsored rows: a few on top, then one interleaved every N owned rows.
+const SPONSORED_TOP = 3;
+const SPONSORED_EVERY = 15;
+
+type JobItem = Route.ComponentProps["loaderData"]["jobs"][number];
+type SponsoredItem = Route.ComponentProps["loaderData"]["sponsored"][number];
+
 const ALL_LABELS = {
 	role: "All Roles",
 	seniority: "All Seniorities",
@@ -231,9 +238,90 @@ function FilterSelect({
 	);
 }
 
+function JobTableRow({ j }: { j: JobItem }) {
+	return (
+		<TableRow>
+			<TableCell>
+				<a
+					href={j.url}
+					target="_blank"
+					rel="noreferrer"
+					className="block w-full max-w-4xl truncate font-medium hover:underline"
+				>
+					{j.title}
+				</a>
+			</TableCell>
+			<TableCell>
+				<Badge variant="secondary">{j.source}</Badge>
+			</TableCell>
+			<TableCell
+				className="text-muted-foreground"
+				title={formatPostedAt(j.createdAt)}
+			>
+				{j.postedAgo}
+			</TableCell>
+		</TableRow>
+	);
+}
+
+function SponsoredTableRow({ s }: { s: SponsoredItem }) {
+	return (
+		<TableRow>
+			<TableCell>
+				<div className="truncate">
+					<a
+						href={s.url}
+						target="_blank"
+						rel="sponsored nofollow noopener"
+						className="font-medium hover:underline"
+					>
+						{s.title}
+					</a>
+					{(s.company || s.salary) && (
+						<span className="text-muted-foreground">
+							{s.company ? ` · ${s.company}` : ""}
+							{s.salary ? ` · ${s.salary}` : ""}
+						</span>
+					)}
+				</div>
+			</TableCell>
+			<TableCell>
+				<Badge variant="outline">Sponsored</Badge>
+			</TableCell>
+			<TableCell
+				className="text-muted-foreground"
+				title={s.date ? formatPostedAtFromIso(s.date) : undefined}
+			>
+				{s.date ? relativeTimeFromIso(s.date) : "—"}
+			</TableCell>
+		</TableRow>
+	);
+}
+
 export default function Home({ loaderData }: Route.ComponentProps) {
 	const { jobs, sponsored, page, totalPages, total, q, filters } = loaderData;
 	const navigate = useNavigate();
+
+	// Merge owned + sponsored rows: sponsored on top, then interleaved.
+	const rows: Array<
+		| { type: "job"; value: JobItem }
+		| { type: "sponsored"; value: SponsoredItem }
+	> = [];
+	let sponsoredIdx = 0;
+	for (
+		;
+		sponsoredIdx < Math.min(SPONSORED_TOP, sponsored.length);
+		sponsoredIdx++
+	) {
+		rows.push({ type: "sponsored", value: sponsored[sponsoredIdx] });
+	}
+	for (const [i, j] of jobs.entries()) {
+		rows.push({ type: "job", value: j });
+		if ((i + 1) % SPONSORED_EVERY === 0 && sponsoredIdx < sponsored.length) {
+			rows.push({ type: "sponsored", value: sponsored[sponsoredIdx] });
+			sponsoredIdx++;
+		}
+	}
 
 	const activeFilters = FILTER_KEYS.flatMap((key) => {
 		const option = findFilterOption(key, filters[key]);
@@ -328,60 +416,13 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
 				<Table>
 					<TableBody>
-						{sponsored.map((s) => (
-							<TableRow key={s.id}>
-								<TableCell>
-									<div className="truncate">
-										<a
-											href={s.url}
-											target="_blank"
-											rel="sponsored nofollow noopener"
-											className="font-medium hover:underline"
-										>
-											{s.title}
-										</a>
-										{(s.company || s.salary) && (
-											<span className="text-muted-foreground">
-												{s.company ? ` · ${s.company}` : ""}
-												{s.salary ? ` · ${s.salary}` : ""}
-											</span>
-										)}
-									</div>
-								</TableCell>
-								<TableCell>
-									<Badge variant="outline">Sponsored</Badge>
-								</TableCell>
-								<TableCell
-									className="text-muted-foreground"
-									title={s.date ? formatPostedAtFromIso(s.date) : undefined}
-								>
-									{s.date ? relativeTimeFromIso(s.date) : "—"}
-								</TableCell>
-							</TableRow>
-						))}
-						{jobs.map((j) => (
-							<TableRow key={j.id}>
-								<TableCell>
-									<a
-										href={j.url}
-										target="_blank"
-										rel="noreferrer"
-										className="block w-full max-w-4xl truncate font-medium hover:underline"
-									>
-										{j.title}
-									</a>
-								</TableCell>
-								<TableCell>
-									<Badge variant="secondary">{j.source}</Badge>
-								</TableCell>
-								<TableCell
-									className="text-muted-foreground"
-									title={formatPostedAt(j.createdAt)}
-								>
-									{j.postedAgo}
-								</TableCell>
-							</TableRow>
-						))}
+						{rows.map((row) =>
+							row.type === "job" ? (
+								<JobTableRow key={row.value.id} j={row.value} />
+							) : (
+								<SponsoredTableRow key={row.value.id} s={row.value} />
+							),
+						)}
 					</TableBody>
 				</Table>
 

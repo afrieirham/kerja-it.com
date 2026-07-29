@@ -2,9 +2,12 @@ import { env } from "~/env.server";
 
 const API_URL = "https://search.api.careerjet.net/v4/query";
 const LOCALE = "en_MY";
-const PAGE_SIZE = 50;
+// Careerjet caps responses at 20 jobs regardless of page_size (verified), so
+// we fetch multiple pages to give the relevance filter enough raw inventory.
+const PAGE_SIZE = 20;
+const FETCH_PAGES = 2;
 const FRAGMENT_SIZE = 200;
-const MAX_SPONSORED = 5;
+const MAX_SPONSORED = 10;
 const TIMEOUT_MS = 4000;
 const REFERER = "https://kerja-it.com/";
 
@@ -113,6 +116,9 @@ const NON_TECH_TERMS = [
 	"mechanical",
 	"electrical",
 	"chemical",
+	"structural",
+	"coastal",
+	"bim",
 	"manufacturing",
 	"rotating",
 	"production",
@@ -149,6 +155,7 @@ const NON_TECH_TERMS = [
 	"audit",
 	"tax",
 	"procurement",
+	"supplier",
 	"supply chain",
 	"logistics",
 	"warehouse",
@@ -190,6 +197,38 @@ function normalize(job: CareerjetJob): SponsoredJob | null {
 	};
 }
 
+/** Fetches one result page. Fails open: any error returns []. */
+async function fetchPage(
+	query: URLSearchParams,
+	page: number,
+	apiKey: string,
+): Promise<CareerjetJob[]> {
+	try {
+		const pageQuery = new URLSearchParams(query);
+		pageQuery.set("page", String(page));
+
+		const res = await fetch(`${API_URL}?${pageQuery}`, {
+			headers: {
+				Authorization: `Basic ${btoa(apiKey)}`,
+				Referer: REFERER,
+			},
+			signal: AbortSignal.timeout(TIMEOUT_MS),
+		});
+
+		if (!res.ok) {
+			console.error(`careerjet: unexpected status ${res.status}`);
+			return [];
+		}
+
+		const data = (await res.json()) as CareerjetResponse;
+		if (data.type !== "JOBS" || !data.jobs) return [];
+		return data.jobs;
+	} catch (error) {
+		console.error("careerjet: fetch failed", error);
+		return [];
+	}
+}
+
 /**
  * Searches Careerjet on behalf of a site visitor. Must be called request-time
  * with the visitor's own ip/user-agent (Careerjet requires both for click
@@ -203,7 +242,8 @@ export async function searchCareerjet(params: {
 	userIp: string | null;
 	userAgent: string;
 }): Promise<SponsoredJob[]> {
-	if (!env.CAREERJET_API_KEY) return [];
+	const apiKey = env.CAREERJET_API_KEY;
+	if (!apiKey) return [];
 
 	// Careerjet hard-requires user_ip (403 without it). Locally there is no
 	// x-forwarded-for, so fall back to a configured dev ip; without either,
@@ -211,45 +251,31 @@ export async function searchCareerjet(params: {
 	const userIp = params.userIp ?? env.CAREERJET_DEV_IP;
 	if (!userIp) return [];
 
-	try {
-		const query = new URLSearchParams({
-			locale_code: LOCALE,
-			keywords: params.keywords,
-			page_size: String(PAGE_SIZE),
-			fragment_size: String(FRAGMENT_SIZE),
-			sort: params.sort,
-			user_ip: userIp,
-			user_agent: params.userAgent,
-		});
-		// No location param = country-wide search. Default radius is 5km,
-		// which strangles city searches, so widen it when filtering by city.
-		if (params.location) {
-			query.set("location", params.location);
-			query.set("radius", "50");
-		}
-
-		const res = await fetch(`${API_URL}?${query}`, {
-			headers: {
-				Authorization: `Basic ${btoa(env.CAREERJET_API_KEY)}`,
-				Referer: REFERER,
-			},
-			signal: AbortSignal.timeout(TIMEOUT_MS),
-		});
-
-		if (!res.ok) {
-			console.error(`careerjet: unexpected status ${res.status}`);
-			return [];
-		}
-
-		const data = (await res.json()) as CareerjetResponse;
-		if (data.type !== "JOBS" || !data.jobs) return [];
-
-		return data.jobs
-			.map(normalize)
-			.filter((job) => job !== null)
-			.slice(0, MAX_SPONSORED);
-	} catch (error) {
-		console.error("careerjet: fetch failed", error);
-		return [];
+	const query = new URLSearchParams({
+		locale_code: LOCALE,
+		keywords: params.keywords,
+		page_size: String(PAGE_SIZE),
+		fragment_size: String(FRAGMENT_SIZE),
+		sort: params.sort,
+		user_ip: userIp,
+		user_agent: params.userAgent,
+	});
+	// No location param = country-wide search. Default radius is 5km,
+	// which strangles city searches, so widen it when filtering by city.
+	if (params.location) {
+		query.set("location", params.location);
+		query.set("radius", "50");
 	}
+
+	const pages = await Promise.all(
+		Array.from({ length: FETCH_PAGES }, (_, i) =>
+			fetchPage(query, i + 1, apiKey),
+		),
+	);
+
+	return pages
+		.flat()
+		.map(normalize)
+		.filter((job) => job !== null)
+		.slice(0, MAX_SPONSORED);
 }
