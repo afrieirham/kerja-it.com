@@ -1,5 +1,7 @@
-import { desc } from "drizzle-orm";
+import { and, desc, ilike, notIlike, or, type SQL } from "drizzle-orm";
+import { Form, Link, useNavigate } from "react-router";
 import { Badge } from "~/components/core/badge";
+import { Input } from "~/components/core/input";
 import {
 	Pagination,
 	PaginationContent,
@@ -9,19 +11,33 @@ import {
 	PaginationPrevious,
 } from "~/components/core/pagination";
 import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "~/components/core/table";
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "~/components/core/select";
+import { Table, TableBody, TableCell, TableRow } from "~/components/core/table";
 import { Header } from "~/components/widget/header";
 import { db } from "~/db";
 import { job } from "~/db/schema";
+import {
+	FILTER_DIMENSIONS,
+	FILTER_KEYS,
+	FILTER_LABELS,
+	type FilterDimension,
+	type FilterKey,
+	findFilterOption,
+} from "~/lib/job-filters";
 import type { Route } from "./+types/home";
 
 const PAGE_SIZE = 20;
+
+const ALL_LABELS: Record<FilterKey, string> = {
+	role: "All Roles",
+	seniority: "All Seniorities",
+	location: "All Locations",
+};
 
 const postedDateFormatter = new Intl.DateTimeFormat("en-GB", {
 	dateStyle: "medium",
@@ -34,49 +50,221 @@ function formatPostedAt(createdAt: string) {
 	);
 }
 
+function escapeLike(value: string) {
+	return value.replace(/[\\%_]/g, (match) => `\\${match}`);
+}
+
+function buildWhere(q: string, filters: Record<FilterKey, string | null>) {
+	const conditions: (SQL | undefined)[] = [];
+
+	for (const token of q.split(/\s+/).filter(Boolean)) {
+		const pattern = `%${escapeLike(token)}%`;
+		conditions.push(
+			or(ilike(job.title, pattern), ilike(job.description, pattern)),
+		);
+	}
+
+	for (const key of FILTER_KEYS) {
+		const dimension = FILTER_DIMENSIONS[key];
+		const option = findFilterOption(key, filters[key]);
+		if (!option) continue;
+
+		const fields = dimension.searchDescription
+			? [job.title, job.description]
+			: [job.title];
+
+		conditions.push(
+			or(
+				...option.patterns.map((pattern) =>
+					or(
+						...fields.map((field) =>
+							and(
+								ilike(field, pattern),
+								...(option.exclude ?? []).map((ex) => notIlike(field, ex)),
+							),
+						),
+					),
+				),
+			),
+		);
+	}
+
+	return and(...conditions);
+}
+
 export function meta() {
 	return [
 		{ title: "Kerja-IT.com" },
-		{ name: "description", content: "Find your next IT job." },
+		{ name: "description", content: "Find your next tech job in Malaysia." },
 	];
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
 	const url = new URL(request.url);
 	const page = Math.max(1, Number(url.searchParams.get("page")) || 1);
+	const q = (url.searchParams.get("q") ?? "").trim();
+
+	const filters = Object.fromEntries(
+		FILTER_KEYS.map((key) => [
+			key,
+			findFilterOption(key, url.searchParams.get(key))?.value ?? null,
+		]),
+	) as Record<FilterKey, string | null>;
+
+	const where = buildWhere(q, filters);
 
 	const [jobs, total] = await Promise.all([
 		db
 			.select()
 			.from(job)
+			.where(where)
 			.orderBy(desc(job.createdAt), desc(job.id))
 			.limit(PAGE_SIZE)
 			.offset((page - 1) * PAGE_SIZE),
-		db.$count(job),
+		db.$count(job, where),
 	]);
 
-	return { jobs, page, totalPages: Math.max(1, Math.ceil(total / PAGE_SIZE)) };
+	return {
+		jobs,
+		page,
+		totalPages: Math.max(1, Math.ceil(total / PAGE_SIZE)),
+		total,
+		q,
+		filters,
+	};
+}
+
+function FilterSelect({
+	dimensionKey,
+	dimension,
+	value,
+	onChange,
+}: {
+	dimensionKey: FilterKey;
+	dimension: FilterDimension;
+	value: string | null;
+	onChange: (value: string | null) => void;
+}) {
+	return (
+		<Select
+			value={value}
+			onValueChange={(v) => onChange(v)}
+			items={[
+				{ value: null, label: ALL_LABELS[dimensionKey] },
+				...dimension.options.map((o) => ({ value: o.value, label: o.label })),
+			]}
+		>
+			<SelectTrigger className="w-full">
+				<SelectValue placeholder={FILTER_LABELS[dimensionKey]} />
+			</SelectTrigger>
+			<SelectContent>
+				<SelectItem value={null}>{ALL_LABELS[dimensionKey]}</SelectItem>
+				{dimension.options.map((option) => (
+					<SelectItem key={option.value} value={option.value}>
+						{option.label}
+					</SelectItem>
+				))}
+			</SelectContent>
+		</Select>
+	);
 }
 
 export default function Home({ loaderData }: Route.ComponentProps) {
-	const { jobs, page, totalPages } = loaderData;
+	const { jobs, page, totalPages, total, q, filters } = loaderData;
+	const navigate = useNavigate();
+
+	const activeFilters = FILTER_KEYS.flatMap((key) => {
+		const option = findFilterOption(key, filters[key]);
+		return option ? [{ key, label: option.label }] : [];
+	});
+	const hasActiveFilters = q.length > 0 || activeFilters.length > 0;
+
+	const pageHref = (p: number) => {
+		const params = new URLSearchParams();
+		if (q) params.set("q", q);
+		for (const key of FILTER_KEYS) {
+			const value = filters[key];
+			if (value) params.set(key, value);
+		}
+		if (p > 1) params.set("page", String(p));
+		const qs = params.toString();
+		return qs ? `/?${qs}` : "/";
+	};
+
+	const onFilterChange = (key: FilterKey, value: string | null) => {
+		const params = new URLSearchParams();
+		if (q) params.set("q", q);
+		for (const k of FILTER_KEYS) {
+			const v = k === key ? value : filters[k];
+			if (v) params.set(k, v);
+		}
+		const qs = params.toString();
+		navigate(qs ? `/?${qs}` : "/");
+	};
 
 	const start = Math.max(1, Math.min(page - 2, totalPages - 4));
 	const end = Math.min(totalPages, start + 4);
 	const pages = Array.from({ length: end - start + 1 }, (_, i) => start + i);
 
 	return (
-		<div>
+		<div className="px-4">
 			<Header />
 			<main className="container mx-auto space-y-4 py-4">
+				<div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+					<Form method="get" className="flex gap-2">
+						<Input
+							key={q}
+							name="q"
+							defaultValue={q}
+							placeholder="Search jobs…"
+							className="max-w-sm"
+						/>
+						{activeFilters.map((f) => (
+							<input
+								key={f.key}
+								type="hidden"
+								name={f.key}
+								value={filters[f.key] ?? ""}
+							/>
+						))}
+					</Form>
+
+					{FILTER_KEYS.map((key) => (
+						<FilterSelect
+							key={key}
+							dimensionKey={key}
+							dimension={FILTER_DIMENSIONS[key]}
+							value={filters[key]}
+							onChange={(value) => onFilterChange(key, value)}
+						/>
+					))}
+				</div>
+
+				<p className="text-muted-foreground text-xs">
+					{total.toLocaleString("en-US")} jobs
+					{q && (
+						<>
+							{" "}
+							for{" "}
+							<span className="font-medium text-foreground">
+								&ldquo;{q}&rdquo;
+							</span>
+						</>
+					)}
+					{activeFilters.length > 0 && (
+						<> · {activeFilters.map((f) => f.label).join(" · ")}</>
+					)}
+					{hasActiveFilters && (
+						<>
+							{" — "}
+							<Link to="/" className="underline hover:text-foreground">
+								Clear
+							</Link>
+						</>
+					)}
+				</p>
+
 				<Table>
-					<TableHeader>
-						<TableRow>
-							<TableHead>Title</TableHead>
-							<TableHead>Source</TableHead>
-							<TableHead>Posted</TableHead>
-						</TableRow>
-					</TableHeader>
 					<TableBody>
 						{jobs.map((j) => (
 							<TableRow key={j.id}>
@@ -105,7 +293,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 					<PaginationContent>
 						<PaginationItem>
 							<PaginationPrevious
-								href={page > 1 ? `/?page=${page - 1}` : undefined}
+								href={page > 1 ? pageHref(page - 1) : undefined}
 								aria-disabled={page <= 1}
 								className={
 									page <= 1 ? "pointer-events-none opacity-50" : undefined
@@ -114,14 +302,14 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 						</PaginationItem>
 						{pages.map((p) => (
 							<PaginationItem key={p}>
-								<PaginationLink href={`/?page=${p}`} isActive={p === page}>
+								<PaginationLink href={pageHref(p)} isActive={p === page}>
 									{p}
 								</PaginationLink>
 							</PaginationItem>
 						))}
 						<PaginationItem>
 							<PaginationNext
-								href={page < totalPages ? `/?page=${page + 1}` : undefined}
+								href={page < totalPages ? pageHref(page + 1) : undefined}
 								aria-disabled={page >= totalPages}
 								className={
 									page >= totalPages
