@@ -1,0 +1,27 @@
+name: Fetch Kerja IT Jobs
+
+on:
+  workflow_dispatch:
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Use Node.js 20
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: 1.1.0
+      - name: Run Node.js script
+        working-directory: .
+        run: |
+          bun install  
+          bun run start
+        env:
+          GOOGLE_SEARCH_CX: ${{ secrets.GOOGLE_SEARCH_CX }}
+          GOOGLE_SEARCH_KEY: ${{ secrets.GOOGLE_SEARCH_KEY }}
+          BASE_API_URL: ${{ secrets.BASE_API_URL }}
+          CRON_API_KEY: ${{ secrets.CRON_API_KEY }}
