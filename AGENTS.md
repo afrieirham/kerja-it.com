@@ -53,10 +53,9 @@ scraper/ (bun):
   convention). Path alias `~/*` → `web/app/*`.
 - shadcn (`web/components.json`): UI alias is `~/components/core` (not the
   default `ui`); built on `@base-ui/react`, not Radix.
-- `scraper/.github/workflows/fetch.yml` is inactive at this location —
-  GitHub Actions only reads `.github/workflows` at the repo root. To
-  restore it: move it to `/.github/workflows/` and change
-  `working-directory: .` to `scraper`.
+- `.github/workflows/fetch.yml` runs the scraper (manual-dispatch only).
+  Requires repo secrets: `GOOGLE_SEARCH_CX`, `GOOGLE_SEARCH_KEY`,
+  `BASE_API_URL`, `CRON_API_KEY`.
 
 ## References
 
