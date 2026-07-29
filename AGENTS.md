@@ -53,9 +53,12 @@ scraper/ (bun):
   convention). Path alias `~/*` → `web/app/*`.
 - shadcn (`web/components.json`): UI alias is `~/components/core` (not the
   default `ui`); built on `@base-ui/react`, not Radix.
-- `.github/workflows/fetch.yml` runs the scraper (manual-dispatch only).
-  Requires repo secrets: `GOOGLE_SEARCH_CX`, `GOOGLE_SEARCH_KEY`,
-  `BASE_API_URL`, `CRON_API_KEY`.
+- `.github/workflows/fetch.yml` runs the scraper. The schedule lives
+  outside GitHub: an external cron POSTs to the GitHub dispatch API
+  (`/actions/workflows/fetch.yml/dispatches`) every 3 hours. Until the
+  monorepo cutover, production runs still happen in the legacy
+  `Kerja-IT/scraper` repo. Requires repo secrets: `GOOGLE_SEARCH_CX`,
+  `GOOGLE_SEARCH_KEY`, `BASE_API_URL`, `CRON_API_KEY`.
 
 ## References
 
