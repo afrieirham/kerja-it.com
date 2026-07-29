@@ -1,4 +1,13 @@
-import { and, desc, ilike, notIlike, or, type SQL } from "drizzle-orm";
+import {
+	and,
+	desc,
+	gte,
+	ilike,
+	notIlike,
+	or,
+	type SQL,
+	sql,
+} from "drizzle-orm";
 import { Form, Link, useNavigate } from "react-router";
 import { Badge } from "~/components/core/badge";
 import { Input } from "~/components/core/input";
@@ -31,23 +40,48 @@ import {
 } from "~/lib/job-filters";
 import type { Route } from "./+types/home";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 100;
 
-const ALL_LABELS: Record<FilterKey, string> = {
+const ALL_LABELS = {
 	role: "All Roles",
 	seniority: "All Seniorities",
 	location: "All Locations",
-};
+} as const satisfies Partial<Record<FilterKey, string>>;
+
+type VisibleFilterKey = keyof typeof ALL_LABELS;
+
+const FILTER_SELECT_KEYS = Object.keys(ALL_LABELS) as VisibleFilterKey[];
 
 const postedDateFormatter = new Intl.DateTimeFormat("en-GB", {
 	dateStyle: "medium",
 	timeZone: "UTC",
 });
 
+const relativeTimeFormatter = new Intl.RelativeTimeFormat("en", {
+	numeric: "always",
+});
+
+function parseCreatedAt(createdAt: string) {
+	return new Date(`${createdAt.replace(" ", "T")}Z`);
+}
+
 function formatPostedAt(createdAt: string) {
-	return postedDateFormatter.format(
-		new Date(`${createdAt.replace(" ", "T")}Z`),
+	return postedDateFormatter.format(parseCreatedAt(createdAt));
+}
+
+function relativeTime(createdAt: string, now = Date.now()) {
+	const minutes = Math.max(
+		0,
+		Math.floor((now - parseCreatedAt(createdAt).getTime()) / 60_000),
 	);
+	const hours = Math.floor(minutes / 60);
+	const days = Math.floor(hours / 24);
+	const months = Math.floor(days / 30);
+
+	if (months >= 1) return relativeTimeFormatter.format(-months, "month");
+	if (days >= 1) return relativeTimeFormatter.format(-days, "day");
+	if (hours >= 1) return relativeTimeFormatter.format(-hours, "hour");
+	return relativeTimeFormatter.format(-Math.max(1, minutes), "minute");
 }
 
 function escapeLike(value: string) {
@@ -111,7 +145,10 @@ export async function loader({ request }: Route.LoaderArgs) {
 		]),
 	) as Record<FilterKey, string | null>;
 
-	const where = buildWhere(q, filters);
+	const where = and(
+		buildWhere(q, filters),
+		gte(job.createdAt, sql`CURRENT_TIMESTAMP - INTERVAL '3 months'`),
+	);
 
 	const [jobs, total] = await Promise.all([
 		db
@@ -125,7 +162,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 	]);
 
 	return {
-		jobs,
+		jobs: jobs.map((j) => ({ ...j, postedAgo: relativeTime(j.createdAt) })),
 		page,
 		totalPages: Math.max(1, Math.ceil(total / PAGE_SIZE)),
 		total,
@@ -140,7 +177,7 @@ function FilterSelect({
 	value,
 	onChange,
 }: {
-	dimensionKey: FilterKey;
+	dimensionKey: VisibleFilterKey;
 	dimension: FilterDimension;
 	value: string | null;
 	onChange: (value: string | null) => void;
@@ -229,7 +266,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 						))}
 					</Form>
 
-					{FILTER_KEYS.map((key) => (
+					{FILTER_SELECT_KEYS.map((key) => (
 						<FilterSelect
 							key={key}
 							dimensionKey={key}
@@ -273,7 +310,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 										href={j.url}
 										target="_blank"
 										rel="noreferrer"
-										className="block max-w-md truncate font-medium hover:underline"
+										className="block w-full truncate font-medium hover:underline"
 									>
 										{j.title}
 									</a>
@@ -281,8 +318,11 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 								<TableCell>
 									<Badge variant="secondary">{j.source}</Badge>
 								</TableCell>
-								<TableCell className="text-muted-foreground">
-									{formatPostedAt(j.createdAt)}
+								<TableCell
+									className="text-muted-foreground"
+									title={formatPostedAt(j.createdAt)}
+								>
+									{j.postedAgo}
 								</TableCell>
 							</TableRow>
 						))}
