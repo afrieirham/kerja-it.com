@@ -32,6 +32,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
 				<Meta />
 				<Links />
 			</head>
+			<script
+				defer
+				src="https://analytics.afrieirham.com/script.js"
+				data-website-id="3de8ed05-3bf8-46fd-873f-f368586ad776"
+			></script>
 			<body>
 				{children}
 				<ScrollRestoration />
