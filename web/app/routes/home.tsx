@@ -43,9 +43,9 @@ import type { Route } from "./+types/home";
 
 const PAGE_SIZE = 100;
 
-// Sponsored rows: a few on top, then one interleaved every N owned rows.
-const SPONSORED_TOP = 3;
-const SPONSORED_EVERY = 15;
+// Sponsored rows: one interleaved every N owned rows; leftovers trail at
+// the end so short/empty result sets still show them.
+const SPONSORED_EVERY = 10;
 
 type JobItem = Route.ComponentProps["loaderData"]["jobs"][number];
 type SponsoredItem = Route.ComponentProps["loaderData"]["sponsored"][number];
@@ -302,25 +302,21 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 	const { jobs, sponsored, page, totalPages, total, q, filters } = loaderData;
 	const navigate = useNavigate();
 
-	// Merge owned + sponsored rows: sponsored on top, then interleaved.
+	// Merge owned + sponsored rows: interleaved, leftovers trailing.
 	const rows: Array<
 		| { type: "job"; value: JobItem }
 		| { type: "sponsored"; value: SponsoredItem }
 	> = [];
 	let sponsoredIdx = 0;
-	for (
-		;
-		sponsoredIdx < Math.min(SPONSORED_TOP, sponsored.length);
-		sponsoredIdx++
-	) {
-		rows.push({ type: "sponsored", value: sponsored[sponsoredIdx] });
-	}
 	for (const [i, j] of jobs.entries()) {
 		rows.push({ type: "job", value: j });
 		if ((i + 1) % SPONSORED_EVERY === 0 && sponsoredIdx < sponsored.length) {
 			rows.push({ type: "sponsored", value: sponsored[sponsoredIdx] });
 			sponsoredIdx++;
 		}
+	}
+	for (; sponsoredIdx < sponsored.length; sponsoredIdx++) {
+		rows.push({ type: "sponsored", value: sponsored[sponsoredIdx] });
 	}
 
 	const activeFilters = FILTER_KEYS.flatMap((key) => {
