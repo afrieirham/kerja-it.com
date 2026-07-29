@@ -1,66 +1,58 @@
 # AGENTS.md
 
+Read `README.md` first for architecture and setup. This file is only the
+gotchas an agent is likely to miss.
+
 ## Layout
 
-Two independent projects merged into one repo (full history). No root
-package.json or shared tooling — cd into each directory.
+- No root package.json or workspace config — `web/` (npm) and `scraper/`
+  (bun) are fully standalone. Always `cd` into one before installing or
+  running anything.
 
-- `web/` — React Router v8 (framework mode, SSR) job board. npm.
-- `scraper/` — Bun script: fetches IT jobs via Google Custom Search and
-  POSTs them to the web app's cron endpoint. bun.
+## web/ (React Router v8 framework mode, SSR)
 
-## Data flow
+- `npm run typecheck` = `react-router typegen && tsc`. Typegen must run
+  first — imports from `./+types/...` and `~` route types fail on bare
+  `tsc`. `.react-router/` is generated; never edit it.
+- There is **no test suite and no lint script**. Verify changes with
+  `npm run typecheck` and `npx biome check .` (Biome 2.x, linter enabled in
+  `biome.json`). `npm run format` only formats (`biome format --write`).
+- Biome style: tabs, double quotes, organize-imports on save (assist).
+- **Env trap:** `app/env.server.ts` validates env at import time via
+  `@t3-oss/env-core` + zod. `CRON_API_KEY` is required but missing from
+  `.env.example` — add it manually or `npm run dev` and every `db:*` script
+  crash (`drizzle.config.ts` imports `./app/env.server`). Client-side env
+  only via `VITE_`-prefixed vars in `app/env.client.ts`.
+- Path alias `~/*` → `./app/*`.
+- shadcn: generated UI lives in `~/components/core` (not `ui`), built on
+  `@base-ui/react` (not Radix), lucide icons. App-specific components go in
+  `~/components/widget`.
+- Routes are explicitly registered in `app/routes.ts` — only `home` and
+  `api/cron/save-jobs` exist.
+- Drizzle schema (`app/db/schema.ts`) uses quoted PascalCase table names
+  (`"Job"`, `"Recruiter"`, `"RecruiterJob"`); migrations output to
+  `app/db/migrations`.
 
-`scraper/src/fetch.ts` queries Google Custom Search using titles/locations
-from `src/constant.ts`, then POSTs `{ apiKey, input }` to
-`${BASE_API_URL}/cron/save-jobs`. **`BASE_API_URL` must end in `/api`** —
-the web route is `/api/cron/save-jobs` (`web/app/routes.ts`). The action
-checks `apiKey === CRON_API_KEY` and inserts with `onConflictDoNothing` on
-`job.url` (the dedupe key). The home loader reads the same `Job` table and
-only shows rows from the last 3 months.
+## scraper/ (Bun script, no build)
 
-## Commands
+- Run with `bun run start` (executes `src/fetch.ts`). `scraper/README.md`'s
+  `bun run index.ts` is stale.
+- `src/fetch.ts` has a config-in-code flag: `const fake = [1]` — set to `[]`
+  to skip the real Google API fetch.
+- `src/test.ts` is a hardcoded list of job URLs, not a test suite.
+- Contract with web: POSTs `{ apiKey, input }` to
+  `${BASE_API_URL}/cron/save-jobs`; web dedupes on `job.url`
+  (`onConflictDoNothing`).
 
-web/ (npm):
+## CI
 
-- `npm run dev` / `build` / `start`
-- `npm run typecheck` — runs `react-router typegen` then `tsc`. Required:
-  routes import `./+types/...` generated into `.react-router/`. Re-run
-  after adding/renaming routes.
-- `npm run format` — Biome (`--write`). Tabs, double quotes, organize
-  imports. No separate lint script; no tests exist in either project.
-- `npm run db:pull|push|generate|migrate|studio` — drizzle-kit.
+- Only workflow is `.github/workflows/fetch.yml`, `workflow_dispatch` only
+  (an external cron triggers it). There are no PR checks — verification is
+  entirely local.
 
-scraper/ (bun):
+## Existing instruction sources
 
-- `bun install`, `bun run start` (runs `src/fetch.ts`). The scraper README
-  is stale — there is no `index.ts`.
-- Required env: `GOOGLE_SEARCH_CX`, `GOOGLE_SEARCH_KEY`, `BASE_API_URL`,
-  `CRON_API_KEY`. Runtime knobs are inline in `fetch.ts`: the `fake` array
-  (empty = skip fetching) and the `start > 91` pagination cap.
-
-## Gotchas
-
-- `web/app/env.server.ts` validates env **at import time** (t3-env + zod),
-  and `drizzle.config.ts` imports it — every `db:*` command needs a `.env`
-  with valid `DATABASE_URL` *and* `CRON_API_KEY`. `.env.example` omits
-  `CRON_API_KEY`.
-- DB schema was introspected from a pre-existing database (PascalCase
-  tables `Job`/`Recruiter`/`RecruiterJob`); no migrations are committed
-  (`app/db/migrations/` doesn't exist). Prefer `db:pull`; be careful with
-  `db:push` against real data.
-- Routes are explicitly declared in `web/app/routes.ts` (no file-based
-  convention). Path alias `~/*` → `web/app/*`.
-- shadcn (`web/components.json`): UI alias is `~/components/core` (not the
-  default `ui`); built on `@base-ui/react`, not Radix.
-- `.github/workflows/fetch.yml` runs the scraper. The schedule lives
-  outside GitHub: an external cron POSTs to the GitHub dispatch API
-  (`/actions/workflows/fetch.yml/dispatches`) every 3 hours. Until the
-  monorepo cutover, production runs still happen in the legacy
-  `Kerja-IT/scraper` repo. Requires repo secrets: `GOOGLE_SEARCH_CX`,
-  `GOOGLE_SEARCH_KEY`, `BASE_API_URL`, `CRON_API_KEY`.
-
-## References
-
-- `web/.agents/skills/react-router/SKILL.md` — vendored React Router
-  mode-specific guidance; consult before routing/loader/action changes.
+- `web/.agents/skills/react-router/SKILL.md` — vendored React Router skill.
+  Load it (and its `references/`) before touching routing, loaders, or
+  actions; it points at version-matched docs in
+  `web/node_modules/react-router/docs/`.
