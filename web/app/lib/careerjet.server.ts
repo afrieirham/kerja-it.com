@@ -200,10 +200,16 @@ export async function searchCareerjet(params: {
 	keywords: string;
 	location: string | null;
 	sort: "relevance" | "date";
-	userIp: string;
+	userIp: string | null;
 	userAgent: string;
 }): Promise<SponsoredJob[]> {
 	if (!env.CAREERJET_API_KEY) return [];
+
+	// Careerjet hard-requires user_ip (403 without it). Locally there is no
+	// x-forwarded-for, so fall back to a configured dev ip; without either,
+	// skip sponsored jobs entirely.
+	const userIp = params.userIp ?? env.CAREERJET_DEV_IP;
+	if (!userIp) return [];
 
 	try {
 		const query = new URLSearchParams({
@@ -212,7 +218,7 @@ export async function searchCareerjet(params: {
 			page_size: String(PAGE_SIZE),
 			fragment_size: String(FRAGMENT_SIZE),
 			sort: params.sort,
-			user_ip: params.userIp,
+			user_ip: userIp,
 			user_agent: params.userAgent,
 		});
 		// No location param = country-wide search. Default radius is 5km,

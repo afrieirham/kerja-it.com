@@ -161,7 +161,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 	);
 
 	// Sponsored jobs are proxied per-request: Careerjet requires the visitor's
-	// own ip/user-agent for click attribution, so skip the call without an ip.
+	// own ip/user-agent for click attribution. Locally there is no
+	// x-forwarded-for — searchCareerjet falls back to CAREERJET_DEV_IP.
 	const userIp = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
 	const roleOption = findFilterOption("role", filters.role);
 	const locationOption = findFilterOption("location", filters.location);
@@ -175,15 +176,13 @@ export async function loader({ request }: Route.LoaderArgs) {
 			.limit(PAGE_SIZE)
 			.offset((page - 1) * PAGE_SIZE),
 		db.$count(job, where),
-		userIp
-			? searchCareerjet({
-					keywords: q || roleOption?.label || "software",
-					location: locationOption?.label ?? null,
-					sort: q || roleOption ? "relevance" : "date",
-					userIp,
-					userAgent: request.headers.get("user-agent") ?? "",
-				})
-			: Promise.resolve([]),
+		searchCareerjet({
+			keywords: q || roleOption?.label || "software",
+			location: locationOption?.label ?? null,
+			sort: q || roleOption ? "relevance" : "date",
+			userIp: userIp ?? null,
+			userAgent: request.headers.get("user-agent") ?? "",
+		}),
 	]);
 
 	return {
@@ -367,7 +366,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 										href={j.url}
 										target="_blank"
 										rel="noreferrer"
-										className="block w-full truncate font-medium hover:underline"
+										className="block w-full max-w-4xl truncate font-medium hover:underline"
 									>
 										{j.title}
 									</a>
