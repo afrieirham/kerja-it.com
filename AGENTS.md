@@ -59,6 +59,11 @@ gotchas an agent is likely to miss.
 - Contract with web: POSTs `{ apiKey, input }` to
   `${BASE_API_URL}/cron/save-jobs`; web dedupes on `job.url`
   (`onConflictDoNothing`).
+- POSTs **raw** title/description — text cleanup moved to web
+  (`job-extract.server.ts`). Before POSTing, urls are normalized
+  (`normalizeUrl`: strips `utm_*` + tracking params so dupes collapse),
+  listing/search pages are skipped (`URL_BLACKLIST`), and the batch is
+  deduped on normalized url.
 
 ## CI
 
