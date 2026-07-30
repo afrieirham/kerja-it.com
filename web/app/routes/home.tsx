@@ -179,7 +179,10 @@ export async function loader({ request }: Route.LoaderArgs) {
 			.select()
 			.from(job)
 			.where(where)
-			.orderBy(desc(job.createdAt), desc(job.id))
+			.orderBy(
+				desc(sql`coalesce(${job.postedAt}, ${job.createdAt})`),
+				desc(job.id),
+			)
 			.limit(PAGE_SIZE)
 			.offset((page - 1) * PAGE_SIZE),
 		db.$count(job, where),
@@ -242,14 +245,19 @@ function JobTableRow({ j }: { j: JobItem }) {
 	return (
 		<TableRow>
 			<TableCell>
-				<a
-					href={j.url}
-					target="_blank"
-					rel="noreferrer"
-					className="block w-full max-w-4xl truncate font-medium hover:underline"
-				>
-					{j.title}
-				</a>
+				<div className="truncate">
+					<a
+						href={j.url}
+						target="_blank"
+						rel="noreferrer"
+						className="font-medium hover:underline"
+					>
+						{j.title}
+					</a>
+					{j.company && (
+						<span className="text-muted-foreground">{` · ${j.company}`}</span>
+					)}
+				</div>
 			</TableCell>
 			<TableCell>
 				<Badge variant="secondary">{j.source}</Badge>
