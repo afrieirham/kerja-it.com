@@ -1,4 +1,4 @@
-import { Send } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { href, Link } from "react-router";
 import { Button } from "~/components/core/button";
 import { TELEGRAM_CHANNEL_URL } from "~/lib/seo";
@@ -19,8 +19,8 @@ export function Header() {
 						rel="noopener noreferrer"
 						className="inline-flex items-center gap-1"
 					>
-						<Send />
-						Telegram
+						Get daily jobs on Telegram
+						<ArrowRight />
 					</a>
 				</Button>
 			</div>

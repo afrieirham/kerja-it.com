@@ -1,11 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
-import {
-	pgTable,
-	text,
-	timestamp,
-	uniqueIndex,
-} from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const job = pgTable(
 	"Job",
@@ -38,5 +33,3 @@ export const job = pgTable(
 		),
 	],
 );
-
-
