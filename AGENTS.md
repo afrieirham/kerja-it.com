@@ -39,6 +39,15 @@ gotchas an agent is likely to miss.
 - Drizzle schema (`app/db/schema.ts`) uses quoted PascalCase table names
   (`"Job"`, `"Recruiter"`, `"RecruiterJob"`); migrations output to
   `app/db/migrations`.
+- Write-time extraction: `app/lib/job-extract.server.ts` (`extractJob`)
+  cleans raw title/description (hacks moved from the scraper) and extracts
+  `company`/`location`/`role`/`seniority`/`salary`/`postedAt` — all
+  nullable, regex-only. Used by the save-jobs endpoint and
+  `scripts/backfill-extract.ts` (one-off: `DATABASE_URL=<prod-url> npx tsx
+  scripts/backfill-extract.ts` from `web/`). The `location`/`role`/
+  `seniority` columns store `job-filters.ts` option **values** (e.g.
+  `kuala-lumpur`, `frontend`) so filters can later switch from ILIKE to
+  exact-match.
 
 ## scraper/ (Bun script, no build)
 
@@ -50,6 +59,11 @@ gotchas an agent is likely to miss.
 - Contract with web: POSTs `{ apiKey, input }` to
   `${BASE_API_URL}/cron/save-jobs`; web dedupes on `job.url`
   (`onConflictDoNothing`).
+- POSTs **raw** title/description — text cleanup moved to web
+  (`job-extract.server.ts`). Before POSTing, urls are normalized
+  (`normalizeUrl`: strips `utm_*` + tracking params so dupes collapse),
+  listing/search pages are skipped (`URL_BLACKLIST`), and the batch is
+  deduped on normalized url.
 
 ## CI
 

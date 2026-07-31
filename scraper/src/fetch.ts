@@ -7,6 +7,38 @@ import { GoogleAPIResult } from "./types";
 
 const fake = [1]; // config: use empty array to skip fetching real data
 
+const TRACKING_PARAMS = new Set([
+  "trk",
+  "refId",
+  "trackingId",
+  "position",
+  "pageNum",
+  "original_referer",
+]);
+
+// Same job with different tracking params must collapse to one URL,
+// otherwise it inserts as a duplicate (web dedupes on url).
+export const normalizeUrl = (url: string): string => {
+  try {
+    const parsed = new URL(url);
+    for (const key of [...parsed.searchParams.keys()]) {
+      if (key.startsWith("utm_") || TRACKING_PARAMS.has(key)) {
+        parsed.searchParams.delete(key);
+      }
+    }
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+};
+
+// Listing/search pages, not individual job posts.
+export const URL_BLACKLIST = [
+  /linkedin\.com\/jobs\/search/,
+  /indeed\.[a-z.]+\/jobs\b/,
+  /jobstreet\.[a-z.]+\/jobs\?/,
+];
+
 const runner = async () => {
   console.log("starting cron");
   const { format, sub } = dateFns;
@@ -86,15 +118,18 @@ const runner = async () => {
   // end fetching jobs
 
   console.log("start formatting links");
-  const apiInput = links.map((link) => ({
-    ...link,
-    title: link.title
-      .replaceAll(" di ", " | ")
-      .replaceAll("sedang mencari pekerja untuk jawatan", "|"),
-    description: link.description
-      .replaceAll("Lihat ini dan pekerjaan yang serupa di LinkedIn.", "")
-      .replaceAll(/^Dipaparkan\s+\d{1,2}:\d{2}:\d{2}\s+(?:PG|PTG)\.\s*/g, ""),
-  }));
+  // Raw text — title/description cleanup moved to web (idempotent, so
+  // deploy order doesn't matter). Here we only normalize urls, skip
+  // listing pages, and dedupe within the batch.
+  const seen = new Set<string>();
+  const apiInput: typeof links = [];
+  for (const link of links) {
+    const url = normalizeUrl(link.url);
+    if (URL_BLACKLIST.some((re) => re.test(url))) continue;
+    if (seen.has(url)) continue;
+    seen.add(url);
+    apiInput.push({ ...link, url });
+  }
   console.log("done formatting links", apiInput);
 
   // start saving jobs
@@ -112,4 +147,4 @@ const runner = async () => {
   // end saving jobs
 };
 
-runner();
+if (import.meta.main) runner();

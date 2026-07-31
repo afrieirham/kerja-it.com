@@ -2,6 +2,7 @@ import { z } from "zod";
 import { db } from "~/db";
 import { job } from "~/db/schema";
 import { env } from "~/env.server";
+import { extractJob } from "~/lib/job-extract.server";
 import type { Route } from "./+types/api.cron.save-jobs";
 
 const bodySchema = z.object({
@@ -42,9 +43,26 @@ export async function action({ request }: Route.ActionArgs) {
 	}
 
 	if (body.input.length > 0) {
+		// Raw text in (old scrapers keep working); extraction/cleaning at write.
+		const values = body.input.map((item) => {
+			const extracted = extractJob(item);
+			return {
+				url: item.url,
+				source: item.source,
+				title: extracted.title,
+				description: extracted.description,
+				company: extracted.company,
+				location: extracted.location,
+				role: extracted.role,
+				seniority: extracted.seniority,
+				salary: extracted.salary,
+				postedAt: extracted.postedAt?.toISOString() ?? null,
+			};
+		});
+
 		const inserted = await db
 			.insert(job)
-			.values(body.input)
+			.values(values)
 			.onConflictDoNothing({ target: job.url })
 			.returning({ id: job.id });
 

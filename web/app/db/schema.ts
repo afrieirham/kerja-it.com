@@ -28,6 +28,12 @@ export const job = pgTable(
 			.notNull()
 			.$defaultFn(() => new Date().toISOString()),
 		source: text().notNull(),
+		company: text(),
+		location: text(),
+		role: text(),
+		seniority: text(),
+		salary: text(),
+		postedAt: timestamp({ precision: 3, mode: "string" }),
 	},
 	(table) => [
 		uniqueIndex("Job_url_key").using(
