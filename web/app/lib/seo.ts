@@ -36,6 +36,9 @@ export const SITE_URL = RAW_SITE_URL.replace(/\/+$/, "");
 export const OG_IMAGE_PATH = "/og.png";
 export const OG_IMAGE_ALT = `${SITE_NAME} — tech jobs in Malaysia`;
 
+/** Public Telegram channel for the daily digest. Linked from the header. */
+export const TELEGRAM_CHANNEL_URL = "https://t.me/KerjaIT_daily";
+
 /**
  * Default copy. Lengths are deliberate, not arbitrary — keep them in range:
  *   title           50-60  chars (SERP title width)

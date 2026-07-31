@@ -20,6 +20,9 @@ Monorepo of two projects:
   the dispatch API.
 - `web/` lists jobs from the last 3 months with search, filters, and
   pagination.
+- New jobs are also sent daily to https://t.me/KerjaIT_daily via
+  `/api/cron/telegram-digest`, which the same external cron calls directly —
+  unlike the scraper it needs no GitHub workflow.
 
 ## Development
 

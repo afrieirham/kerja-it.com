@@ -11,6 +11,9 @@ export const env = createEnv({
 		// Optional — fallback visitor ip for local dev (browsers don't send
 		// x-forwarded-for, so without this sponsored jobs are skipped locally).
 		CAREERJET_DEV_IP: z.string().optional(),
+		// Optional — unset just disables the daily Telegram digest.
+		TELEGRAM_BOT_TOKEN: z.string().optional(),
+		TELEGRAM_CHANNEL_ID: z.string().optional(),
 	},
 	runtimeEnv: process.env,
 	emptyStringAsUndefined: true,

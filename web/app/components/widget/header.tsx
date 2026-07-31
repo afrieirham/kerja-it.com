@@ -1,5 +1,7 @@
+import { Send } from "lucide-react";
 import { href, Link } from "react-router";
 import { Button } from "~/components/core/button";
+import { TELEGRAM_CHANNEL_URL } from "~/lib/seo";
 
 export function Header() {
 	return (
@@ -10,6 +12,17 @@ export function Header() {
 						<Link to={href("/")}>Kerja-IT.com</Link>
 					</Button>
 				</div>
+				<Button variant="link" size="xs" className="px-0">
+					<a
+						href={TELEGRAM_CHANNEL_URL}
+						target="_blank"
+						rel="noopener noreferrer"
+						className="inline-flex items-center gap-1"
+					>
+						<Send />
+						Telegram
+					</a>
+				</Button>
 			</div>
 		</div>
 	);

@@ -22,6 +22,8 @@ gotchas an agent is likely to miss.
   `@t3-oss/env-core` + zod — a missing required var crashes `npm run dev`
   and every `db:*` script (`drizzle.config.ts` imports `./app/env.server`).
   `CAREERJET_API_KEY` is optional: unset just disables sponsored jobs.
+  `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHANNEL_ID` are optional too — unset makes
+  the digest route return `sent: false`.
   Client-side env only via `VITE_`-prefixed vars in `app/env.client.ts`.
 - **`.client.ts` is stubbed on the server.** The `react-router:dot-client`
   Vite plugin rewrites *every* export of any `*.client.ts(x)` module to
@@ -38,15 +40,21 @@ gotchas an agent is likely to miss.
   error and regex-filters results down to tech titles only. Local dev has
   no `x-forwarded-for`; set optional `CAREERJET_DEV_IP` (your whitelisted
   public ip) to test sponsored jobs locally.
+- Daily Telegram digest: `api/cron/telegram-digest` (POST `{apiKey}`, same
+  auth as save-jobs) messages the last 24h of jobs (window on `createdAt`,
+  i.e. arrival on this board) to https://t.me/KerjaIT_daily via
+  `app/lib/telegram.server.ts`. Uses HTML parse_mode — classic Markdown
+  400s on unescaped `[`/`*` in scraped titles. The channel URL constant is
+  `TELEGRAM_CHANNEL_URL` in `app/lib/seo.ts`, linked from the header.
 - Path alias `~/*` → `./app/*`.
 - shadcn: generated UI lives in `~/components/core` (not `ui`), built on
   `@base-ui/react` (not Radix), lucide icons. App-specific components go in
   `~/components/widget`.
 - Routes are explicitly registered in `app/routes.ts` — `home`,
-  `robots.txt`, `sitemap.xml` and `api/cron/save-jobs`.
+  `robots.txt`, `sitemap.xml`, `api/cron/save-jobs` and
+  `api/cron/telegram-digest`.
 - Drizzle schema (`app/db/schema.ts`) uses quoted PascalCase table names
-  (`"Job"`, `"Recruiter"`, `"RecruiterJob"`); migrations output to
-  `app/db/migrations`.
+  (currently just `"Job"`); migrations output to `app/db/migrations`.
 - Write-time extraction: `app/lib/job-extract.server.ts` (`extractJob`)
   cleans raw title/description (hacks moved from the scraper) and extracts
   `company`/`location`/`role`/`seniority`/`salary`/`postedAt` — all
@@ -110,8 +118,11 @@ gotchas an agent is likely to miss.
 ## CI
 
 - Only workflow is `.github/workflows/fetch.yml`, `workflow_dispatch` only
-  (an external cron triggers it). There are no PR checks — verification is
-  entirely local.
+  (an external cron triggers it). The same external cron also POSTs
+  `{apiKey}` directly to `/api/cron/telegram-digest` once a day — that route
+  is pure web-app logic (DB query + one Telegram Bot API call), so unlike
+  the scraper it needs no GitHub workflow. There are no PR checks —
+  verification is entirely local.
 
 ## Existing instruction sources
 
