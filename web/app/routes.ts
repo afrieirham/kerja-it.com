@@ -5,4 +5,5 @@ export default [
 	route("robots.txt", "routes/robots.txt.ts"),
 	route("sitemap.xml", "routes/sitemap.xml.ts"),
 	route("api/cron/save-jobs", "routes/api.cron.save-jobs.ts"),
+	route("api/cron/telegram-digest", "routes/api.cron.telegram-digest.ts"),
 ] satisfies RouteConfig;
