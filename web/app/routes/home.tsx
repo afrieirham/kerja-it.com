@@ -39,6 +39,15 @@ import {
 	type FilterKey,
 	findFilterOption,
 } from "~/lib/job-filters";
+import {
+	absoluteUrl,
+	buildMeta,
+	canonicalPath,
+	DEFAULT_DESCRIPTION,
+	OG_IMAGE_PATH,
+	SITE_NAME,
+	SITE_URL,
+} from "~/lib/seo";
 import type { Route } from "./+types/home";
 
 const PAGE_SIZE = 100;
@@ -143,11 +152,101 @@ function buildWhere(q: string, filters: Record<FilterKey, string | null>) {
 	return and(...conditions);
 }
 
-export function meta() {
+/** `q` is user input landing in <title>. Collapse whitespace and clamp. */
+function cleanQuery(q: string) {
+	const collapsed = q.replace(/\s+/g, " ").trim();
+	return collapsed.length > 40
+		? `${collapsed.slice(0, 40).trimEnd()}…`
+		: collapsed;
+}
+
+/**
+ * Builds a count-aware noun phrase, e.g. "Senior Frontend Jobs in Penang",
+ * "1 Backend Job in Johor", or `Tech Jobs in Malaysia matching “react”`.
+ * Labels keep their original casing — lowercasing would mangle the proper
+ * nouns ("penang", "malaysia") that make up most of the filter values.
+ */
+function describeQuery(
+	q: string,
+	filters: Record<FilterKey, string | null>,
+	count?: number,
+) {
+	const seniority = findFilterOption("seniority", filters.seniority)?.label;
+	const role = findFilterOption("role", filters.role)?.label;
+	const location = findFilterOption("location", filters.location)?.label;
+
+	const subject = [seniority, role].filter(Boolean).join(" ") || "Tech";
+	const noun = count === 1 ? "Job" : "Jobs";
+	const prefix = count === undefined ? "" : `${count.toLocaleString("en-US")} `;
+	const cleaned = cleanQuery(q);
+
 	return [
-		{ title: "Kerja-IT.com" },
-		{ name: "description", content: "Find your next tech job in Malaysia." },
-	];
+		`${prefix}${subject} ${noun} in ${location ?? "Malaysia"}`,
+		cleaned ? ` matching \u201c${cleaned}\u201d` : "",
+	].join("");
+}
+
+export function meta({ location, loaderData }: Route.MetaArgs) {
+	// loaderData is undefined when the ErrorBoundary renders.
+	if (!loaderData) {
+		return buildMeta({ path: location.pathname, noindex: true });
+	}
+
+	const { q, filters, page, total, jobs } = loaderData;
+	const isBare = !q && FILTER_KEYS.every((key) => !filters[key]) && page === 1;
+	const path = canonicalPath({ q, filters, page });
+
+	// Zero rows on THIS page. Covers both an empty filter combo and an
+	// out-of-range ?page=N (total can be non-zero while jobs is empty). Such a
+	// page still renders sponsored Careerjet rows, so without noindex we would
+	// be offering Google a page of nothing but outbound affiliate links.
+	const noindex = jobs.length === 0;
+
+	if (isBare) {
+		return [
+			...buildMeta({ path }),
+			{
+				"script:ld+json": {
+					"@context": "https://schema.org",
+					"@type": "WebSite",
+					name: SITE_NAME,
+					url: SITE_URL,
+					description: DEFAULT_DESCRIPTION,
+					inLanguage: "en-MY",
+					publisher: {
+						"@type": "Organization",
+						name: SITE_NAME,
+						url: SITE_URL,
+						logo: absoluteUrl(OG_IMAGE_PATH),
+					},
+					potentialAction: {
+						"@type": "SearchAction",
+						target: {
+							"@type": "EntryPoint",
+							urlTemplate: `${SITE_URL}/?q={search_term_string}`,
+						},
+						"query-input": "required name=search_term_string",
+					},
+				},
+			},
+		];
+	}
+
+	const subject = describeQuery(q, filters);
+	const counted = describeQuery(q, filters, total);
+	const suffix = page > 1 ? ` \u2014 Page ${page}` : "";
+
+	return buildMeta({
+		path,
+		noindex,
+		title: `${subject}${suffix} | ${SITE_NAME}`,
+		description: noindex
+			? `No ${subject} right now. Browse the latest software engineering, data, DevOps and IT jobs across Malaysia on ${SITE_NAME}.`
+			: `Browse ${counted} on ${SITE_NAME}. Fresh software engineering, data, DevOps and IT roles from across Malaysia, updated daily.`,
+		ogDescription: noindex
+			? `No ${subject} right now \u2014 browse the latest tech jobs across Malaysia instead.`
+			: `${counted}, updated daily on ${SITE_NAME}.`,
+	});
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
