@@ -50,12 +50,12 @@ export default function SignIn({ loaderData }: Route.ComponentProps) {
 	return (
 		<div className="px-4">
 			<Header />
-			<main className="container mx-auto max-w-sm space-y-6 py-16 text-center">
+			<main className="container mx-auto max-w-md space-y-6 py-16 text-center">
 				<div className="space-y-2">
 					<h1 className="text-xl font-semibold">Sign in to post a job</h1>
 					<p className="text-muted-foreground text-sm">
-						Verified posters only — no scams, no spam. Posting is free while we
-						grow.
+						Verified posters only. All job will be reviewed before posted to
+						ensure quality.
 					</p>
 				</div>
 				{providers.length === 0 ? (
