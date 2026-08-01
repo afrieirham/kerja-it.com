@@ -461,9 +461,9 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
 	return (
 		<div className="px-4">
-			<div className="sticky top-0 z-20 bg-white">
+			<div className="sticky top-0 z-20 bg-white pb-2">
 				<Header />
-				<div className="container mx-auto border-b pb-3 pt-3">
+				<div className="container mx-auto pb-3 pt-3">
 					<div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
 						<Form method="get" className="flex gap-2">
 							<Input
@@ -494,32 +494,33 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 						))}
 					</div>
 				</div>
+				<div className="container mx-auto">
+					<p className="text-muted-foreground text-xs">
+						{total.toLocaleString("en-US")} jobs
+						{q && (
+							<>
+								{" "}
+								for{" "}
+								<span className="font-medium text-foreground">
+									&ldquo;{q}&rdquo;
+								</span>
+							</>
+						)}
+						{activeFilters.length > 0 && (
+							<> · {activeFilters.map((f) => f.label).join(" · ")}</>
+						)}
+						{hasActiveFilters && (
+							<>
+								{" — "}
+								<Link to="/" className="underline hover:text-foreground">
+									Clear
+								</Link>
+							</>
+						)}
+					</p>
+				</div>
 			</div>
 			<main className="container mx-auto space-y-4 py-4">
-				<p className="text-muted-foreground text-xs">
-					{total.toLocaleString("en-US")} jobs
-					{q && (
-						<>
-							{" "}
-							for{" "}
-							<span className="font-medium text-foreground">
-								&ldquo;{q}&rdquo;
-							</span>
-						</>
-					)}
-					{activeFilters.length > 0 && (
-						<> · {activeFilters.map((f) => f.label).join(" · ")}</>
-					)}
-					{hasActiveFilters && (
-						<>
-							{" — "}
-							<Link to="/" className="underline hover:text-foreground">
-								Clear
-							</Link>
-						</>
-					)}
-				</p>
-
 				<Table>
 					<TableBody>
 						{rows.map((row) =>
