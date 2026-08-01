@@ -1,9 +1,18 @@
-import { ArrowRight } from "lucide-react";
-import { href, Link } from "react-router";
+import { ArrowRight, Megaphone } from "lucide-react";
+import { href, Link, useNavigate, useRouteLoaderData } from "react-router";
 import { Button } from "~/components/core/button";
+import { authClient } from "~/lib/auth-client";
 import { TELEGRAM_CHANNEL_URL } from "~/lib/seo";
+import type { loader as rootLoader } from "~/root";
 
 export function Header() {
+	const data = useRouteLoaderData<typeof rootLoader>("root");
+	const user = data?.user ?? null;
+	const navigate = useNavigate();
+
+	const signOut = () =>
+		authClient.signOut({ fetchOptions: { onSuccess: () => navigate("/") } });
+
 	return (
 		<nav className="bg-white">
 			<div className="container mx-auto flex w-full items-center justify-between border-b py-2">
@@ -12,17 +21,31 @@ export function Header() {
 						<Link to={href("/")}>Kerja-IT.com</Link>
 					</Button>
 				</div>
-				<Button variant="link" size="xs" className="px-0">
-					<a
-						href={TELEGRAM_CHANNEL_URL}
-						target="_blank"
-						rel="noopener noreferrer"
-						className="inline-flex items-center gap-1"
-					>
-						Get daily jobs on Telegram
-						<ArrowRight />
-					</a>
-				</Button>
+				<div className="flex items-center gap-2">
+					<Button variant="link" size="xs">
+						<a
+							href={TELEGRAM_CHANNEL_URL}
+							target="_blank"
+							rel="noopener noreferrer"
+							className="inline-flex items-center gap-1"
+						>
+							<Megaphone className="size-3" />
+							Get daily jobs on Telegram
+						</a>
+					</Button>
+					{user ? (
+						<Button size="xs" variant="ghost" onClick={signOut}>
+							Logout
+						</Button>
+					) : (
+						<Button size="xs" variant="ghost">
+							<Link to={href("/sign-in")}>Login</Link>
+						</Button>
+					)}
+					<Button size="xs">
+						<Link to={href("/post-a-job")}>Post a job</Link>
+					</Button>
+				</div>
 			</div>
 		</nav>
 	);

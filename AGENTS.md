@@ -23,7 +23,12 @@ gotchas an agent is likely to miss.
   and every `db:*` script (`drizzle.config.ts` imports `./app/env.server`).
   `CAREERJET_API_KEY` is optional: unset just disables sponsored jobs.
   `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHANNEL_ID` are optional too — unset makes
-  the digest route return `sent: false`.
+  the digest route return `sent: false`. `BETTER_AUTH_SECRET` is **required**
+  (session signing; `openssl rand -base64 32`). OAuth creds
+  (`GOOGLE_CLIENT_*`, `LINKEDIN_CLIENT_*`), `ADMIN_EMAILS` and
+  `TELEGRAM_ADMIN_CHAT_ID` are optional: a sign-in provider enables only
+  when BOTH its vars are set; with none, `/sign-in` renders "unavailable"
+  instead of crashing, and unset admin vars just skip alerts/gate `/admin`.
   Client-side env only via `VITE_`-prefixed vars in `app/env.client.ts`.
 - **`.client.ts` is stubbed on the server.** The `react-router:dot-client`
   Vite plugin rewrites *every* export of any `*.client.ts(x)` module to
@@ -33,6 +38,11 @@ gotchas an agent is likely to miss.
   "Cannot read properties of undefined". Nothing imported it before, which
   is why this was never noticed. For isomorphic values read
   `import.meta.env.VITE_*` directly (Vite inlines those into both bundles).
+  This trap is also why the better-auth React client lives in
+  `app/lib/auth-client.ts` (dash, NOT dot) — it is imported by components
+  that render during SSR (header, sign-in), so a `*.client.ts` name would
+  make it `undefined` on first paint. Session state reaches components via
+  the root loader (`useRouteLoaderData("root")`), not `useSession()`.
 - Sponsored jobs come from Careerjet (`app/lib/careerjet.server.ts`),
   fetched **per-request in the home loader** with the visitor's
   ip/user-agent (Careerjet requires both for click attribution) — never
@@ -46,15 +56,30 @@ gotchas an agent is likely to miss.
   `app/lib/telegram.server.ts`. Uses HTML parse_mode — classic Markdown
   400s on unescaped `[`/`*` in scraped titles. The channel URL constant is
   `TELEGRAM_CHANNEL_URL` in `app/lib/seo.ts`, linked from the header.
+- Employer posting: `/post-a-job` requires a better-auth session (Google +
+  LinkedIn social only, `app/lib/auth.server.ts`; catch-all handler in
+  `routes/api.auth.$.ts`). Posts insert as `status: "pending"` with
+  `source: "direct"`; **salary is required** and stored structured in
+  `salaryMin`/`salaryMax` (RM/month, min = max for exact salaries) plus
+  formatted into the display `salary` column. Moderation is `/admin`, gated
+  by `ADMIN_EMAILS` and 404ing for everyone else; new submissions alert a
+  private Telegram chat (`TELEGRAM_ADMIN_CHAT_ID`) via the same bot.
+  `postedById` links the job to the auth `user`. Invariant: **every public
+  Job query filters `status = 'published'`** — home loader, sitemap.xml
+  counts and the telegram-digest all do; never add a query without it.
 - Path alias `~/*` → `./app/*`.
 - shadcn: generated UI lives in `~/components/core` (not `ui`), built on
   `@base-ui/react` (not Radix), lucide icons. App-specific components go in
   `~/components/widget`.
-- Routes are explicitly registered in `app/routes.ts` — `home`,
-  `robots.txt`, `sitemap.xml`, `api/cron/save-jobs` and
-  `api/cron/telegram-digest`.
-- Drizzle schema (`app/db/schema.ts`) uses quoted PascalCase table names
-  (currently just `"Job"`); migrations output to `app/db/migrations`.
+- Routes are explicitly registered in `app/routes.ts` — `home`, `sign-in`,
+  `post-a-job`, `admin`, `robots.txt`, `sitemap.xml`, `api/auth/*`,
+  `api/cron/save-jobs` and `api/cron/telegram-digest`.
+- Drizzle schema (`app/db/schema.ts`) uses quoted PascalCase table names for
+  app tables (`"Job"`); the better-auth tables (`user`, `session`,
+  `account`, `verification`) keep their CLI-generated lowercase names as a
+  documented exception. There are no versioned migrations — changes are
+  applied with `npm run db:push` (the `app/db/migrations` output dir in
+  `drizzle.config.ts` is configured but unused).
 - Write-time extraction: `app/lib/job-extract.server.ts` (`extractJob`)
   cleans raw title/description (hacks moved from the scraper) and extracts
   `company`/`location`/`role`/`seniority`/`salary`/`postedAt` — all

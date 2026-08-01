@@ -1,4 +1,4 @@
-import { and, gte, isNotNull, sql } from "drizzle-orm";
+import { and, eq, gte, isNotNull, sql } from "drizzle-orm";
 import { db } from "~/db";
 import { job } from "~/db/schema";
 import { type FilterKey, findFilterOption } from "~/lib/job-filters";
@@ -38,7 +38,13 @@ async function entriesFor(key: FilterKey): Promise<Entry[]> {
 			lastmod: sql<string>`to_char(max(${job.createdAt}), 'YYYY-MM-DD')`,
 		})
 		.from(job)
-		.where(and(gte(job.createdAt, WINDOW), isNotNull(column)))
+		.where(
+			and(
+				gte(job.createdAt, WINDOW),
+				isNotNull(column),
+				eq(job.status, "published"),
+			),
+		)
 		.groupBy(column)
 		.having(sql`count(*) >= ${MIN_JOBS}`);
 

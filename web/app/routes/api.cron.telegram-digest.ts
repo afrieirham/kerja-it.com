@@ -1,4 +1,4 @@
-import { desc, gte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "~/db";
 import { job } from "~/db/schema";
@@ -50,8 +50,9 @@ export async function action({ request }: Route.ActionArgs) {
 	}
 
 	// Window on createdAt (arrival on this board), not postedAt (source-site
-	// date): the digest announces what is NEW here.
-	const where = gte(job.createdAt, WINDOW);
+	// date): the digest announces what is NEW here. Published only — pending
+	// direct posts would otherwise leak to the channel before review.
+	const where = and(gte(job.createdAt, WINDOW), eq(job.status, "published"));
 
 	const [jobs, total] = await Promise.all([
 		db

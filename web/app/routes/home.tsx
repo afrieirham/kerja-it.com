@@ -1,6 +1,7 @@
 import {
 	and,
 	desc,
+	eq,
 	gte,
 	ilike,
 	notIlike,
@@ -265,6 +266,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 	const where = and(
 		buildWhere(q, filters),
 		gte(job.createdAt, sql`CURRENT_TIMESTAMP - INTERVAL '3 months'`),
+		eq(job.status, "published"),
 	);
 
 	// Sponsored jobs are proxied per-request: Careerjet requires the visitor's
