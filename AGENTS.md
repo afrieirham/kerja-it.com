@@ -61,19 +61,30 @@ gotchas an agent is likely to miss.
   `routes/api.auth.$.ts`). Posts insert as `status: "pending"` with
   `source: "direct"`; **salary is required** and stored structured in
   `salaryMin`/`salaryMax` (RM/month, min = max for exact salaries) plus
-  formatted into the display `salary` column. Moderation is `/admin`, gated
+  formatted into the display `salary` column. Apply is URL **or** email
+  (at least one; `job.url` is nullable, all apply links go through
+  `applyHref`/`sharePath` in `app/lib/job-attributes.ts`). `arrangement`
+  (remote/hybrid/on-site), `employmentType` and `city` are direct-post-only
+  and deliberately NOT filter dimensions (option lists live in
+  `job-attributes.ts`, not `job-filters.ts`). Moderation is `/admin`, gated
   by `ADMIN_EMAILS` and 404ing for everyone else; new submissions alert a
   private Telegram chat (`TELEGRAM_ADMIN_CHAT_ID`) via the same bot.
-  `postedById` links the job to the auth `user`. Invariant: **every public
-  Job query filters `status = 'published'`** — home loader, sitemap.xml
-  counts and the telegram-digest all do; never add a query without it.
+  `postedById` links the job to the auth `user`. Every direct post gets a
+  `slug` ("title-company-<6 hex>", `app/lib/job-slug.server.ts`) and a
+  public `/jobs/:slug` page with JobPosting JSON-LD (Google for Jobs);
+  scraped jobs have no page. Home partitions the two sets: direct jobs
+  render in a filtered "Posted directly by employers" section above the
+  table (limit 10), and the main table excludes `source = 'direct'`.
+  Invariant: **every public Job query filters `status = 'published'`** —
+  home loader, job pages, sitemap.xml and the telegram-digest all do;
+  never add a query without it.
 - Path alias `~/*` → `./app/*`.
 - shadcn: generated UI lives in `~/components/core` (not `ui`), built on
   `@base-ui/react` (not Radix), lucide icons. App-specific components go in
   `~/components/widget`.
 - Routes are explicitly registered in `app/routes.ts` — `home`, `sign-in`,
-  `post-a-job`, `admin`, `robots.txt`, `sitemap.xml`, `api/auth/*`,
-  `api/cron/save-jobs` and `api/cron/telegram-digest`.
+  `post-a-job`, `admin`, `jobs/:slug`, `robots.txt`, `sitemap.xml`,
+  `api/auth/*`, `api/cron/save-jobs` and `api/cron/telegram-digest`.
 - Drizzle schema (`app/db/schema.ts`) uses quoted PascalCase table names for
   app tables (`"Job"`); the better-auth tables (`user`, `session`,
   `account`, `verification`) keep their CLI-generated lowercase names as a
@@ -88,7 +99,9 @@ gotchas an agent is likely to miss.
   scripts/backfill-extract.ts` from `web/`). The `location`/`role`/
   `seniority` columns store `job-filters.ts` option **values** (e.g.
   `kuala-lumpur`, `frontend`) so filters can later switch from ILIKE to
-  exact-match.
+  exact-match. Option order in `JOB_SENIORITIES` is load-bearing:
+  `extractFirst` takes the first matching option, so `mid-level` sits
+  before `senior` ("mid-senior" titles contain "senior").
 
 ### SEO / social cards
 

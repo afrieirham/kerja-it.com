@@ -7,6 +7,12 @@ import { db } from "~/db";
 import { job, user } from "~/db/schema";
 import { env } from "~/env.server";
 import { getSession, isAdminEmail } from "~/lib/auth.server";
+import {
+	ARRANGEMENT_OPTIONS,
+	applyHref,
+	EMPLOYMENT_TYPE_OPTIONS,
+	labelFor,
+} from "~/lib/job-attributes";
 import { buildMeta, SITE_NAME } from "~/lib/seo";
 import { isTelegramConfigured } from "~/lib/telegram.server";
 import type { Route } from "./+types/admin";
@@ -37,6 +43,10 @@ export async function loader({ request }: Route.LoaderArgs) {
 			company: job.company,
 			salary: job.salary,
 			url: job.url,
+			applyEmail: job.applyEmail,
+			arrangement: job.arrangement,
+			employmentType: job.employmentType,
+			city: job.city,
 			createdAt: job.createdAt,
 			posterEmail: user.email,
 		})
@@ -96,63 +106,70 @@ export default function Admin({ loaderData }: Route.ComponentProps) {
 				) : (
 					<Table>
 						<TableBody>
-							{pending.map((j) => (
-								<TableRow key={j.id}>
-									<TableCell>
-										<div>
-											<a
-												href={j.url}
-												target="_blank"
-												rel="noreferrer"
-												className="font-medium hover:underline"
-											>
-												{j.title}
-											</a>
-											<span className="text-muted-foreground">
-												{j.company ? ` · ${j.company}` : ""}
-												{j.salary ? ` · ${j.salary}` : ""}
-											</span>
-											{j.posterEmail && (
+							{pending.map((j) => {
+								const bits = [
+									labelFor(ARRANGEMENT_OPTIONS, j.arrangement),
+									labelFor(EMPLOYMENT_TYPE_OPTIONS, j.employmentType),
+									j.city,
+									j.applyEmail,
+								].filter(Boolean);
+								return (
+									<TableRow key={j.id}>
+										<TableCell>
+											<div>
+												<a
+													href={applyHref(j)}
+													{...(j.url
+														? { target: "_blank", rel: "noreferrer" }
+														: {})}
+													className="font-medium hover:underline"
+												>
+													{j.title}
+												</a>
+												<span className="text-muted-foreground">
+													{j.company ? ` · ${j.company}` : ""}
+													{j.salary ? ` · ${j.salary}` : ""}
+												</span>
 												<div className="text-muted-foreground text-xs">
-													{j.posterEmail}
+													{[j.posterEmail, ...bits].filter(Boolean).join(" · ")}
 												</div>
+											</div>
+										</TableCell>
+										<TableCell className="text-muted-foreground whitespace-nowrap">
+											{dateFormatter.format(
+												new Date(`${j.createdAt.replace(" ", "T")}Z`),
 											)}
-										</div>
-									</TableCell>
-									<TableCell className="text-muted-foreground whitespace-nowrap">
-										{dateFormatter.format(
-											new Date(`${j.createdAt.replace(" ", "T")}Z`),
-										)}
-									</TableCell>
-									<TableCell className="text-right">
-										<div className="flex justify-end gap-2">
-											<Form method="post">
-												<input type="hidden" name="id" value={j.id} />
-												<Button
-													size="xs"
-													type="submit"
-													name="intent"
-													value="approve"
-												>
-													Approve
-												</Button>
-											</Form>
-											<Form method="post">
-												<input type="hidden" name="id" value={j.id} />
-												<Button
-													size="xs"
-													variant="destructive"
-													type="submit"
-													name="intent"
-													value="delete"
-												>
-													Delete
-												</Button>
-											</Form>
-										</div>
-									</TableCell>
-								</TableRow>
-							))}
+										</TableCell>
+										<TableCell className="text-right">
+											<div className="flex justify-end gap-2">
+												<Form method="post">
+													<input type="hidden" name="id" value={j.id} />
+													<Button
+														size="xs"
+														type="submit"
+														name="intent"
+														value="approve"
+													>
+														Approve
+													</Button>
+												</Form>
+												<Form method="post">
+													<input type="hidden" name="id" value={j.id} />
+													<Button
+														size="xs"
+														variant="destructive"
+														type="submit"
+														name="intent"
+														value="delete"
+													>
+														Delete
+													</Button>
+												</Form>
+											</div>
+										</TableCell>
+									</TableRow>
+								);
+							})}
 						</TableBody>
 					</Table>
 				)}

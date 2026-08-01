@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "~/db";
 import { job } from "~/db/schema";
 import { env } from "~/env.server";
+import { sharePath } from "~/lib/job-attributes";
 import { SITE_URL } from "~/lib/seo";
 import {
 	escapeHtml,
@@ -68,10 +69,18 @@ export async function action({ request }: Route.ActionArgs) {
 		return Response.json({ received: true, sent: false, count: 0 });
 	}
 
-	const lines = jobs.map((j, i) => {
-		const meta = [j.company].filter(Boolean).join(" · ");
-		const title = `<a href="${escapeHtml(j.url)}">${escapeHtml(j.title)}</a>`;
-		return `${i + 1}. ${title}${meta ? ` — ${escapeHtml(meta)}` : ""}\n`;
+	// Direct posts link to their on-site page (shareable, indexable);
+	// scraped jobs link straight out.
+	const rows = jobs.flatMap((j) => {
+		const path = sharePath(j);
+		return path ? [{ j, path }] : [];
+	});
+
+	const lines = rows.map(({ j, path }, i) => {
+		const href = path.startsWith("/") ? `${SITE_URL}${path}` : path;
+		const meta = [j.company, j.source].filter(Boolean).join(" · ");
+		const title = `<a href="${escapeHtml(href)}">${escapeHtml(j.title)}</a>`;
+		return `${i + 1}. ${title}${meta ? ` — ${escapeHtml(meta)}` : ""}`;
 	});
 
 	const footer =

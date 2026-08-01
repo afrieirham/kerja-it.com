@@ -17,7 +17,7 @@ export const job = pgTable(
 			.primaryKey()
 			.notNull()
 			.$defaultFn(() => randomUUID()),
-		url: text().notNull(),
+		url: text(),
 		title: text().notNull(),
 		description: text().notNull(),
 		createdAt: timestamp({ precision: 3, mode: "string" })
@@ -41,11 +41,25 @@ export const job = pgTable(
 		// exact salary). The formatted text also lands in `salary` for display.
 		salaryMin: integer(),
 		salaryMax: integer(),
+		// Direct-post-only fields — deliberately NOT filter dimensions (see
+		// job-attributes.ts for the option lists). Scraped rows stay null.
+		city: text(),
+		arrangement: text(), // remote | hybrid | on-site
+		employmentType: text(), // full-time | part-time | internship | contract
+		// Email-only applications: url is null and candidates apply by email.
+		applyEmail: text(),
+		// On-site page slug, direct posts only ("title-company-x7k2p9"). Null
+		// for scraped jobs — they have no /jobs/:slug page.
+		slug: text(),
 	},
 	(table) => [
 		uniqueIndex("Job_url_key").using(
 			"btree",
 			table.url.asc().nullsLast().op("text_ops"),
+		),
+		uniqueIndex("Job_slug_key").using(
+			"btree",
+			table.slug.asc().nullsLast().op("text_ops"),
 		),
 	],
 );

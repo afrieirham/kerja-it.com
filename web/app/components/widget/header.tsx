@@ -1,4 +1,4 @@
-import { ArrowRight, Megaphone } from "lucide-react";
+import { Megaphone } from "lucide-react";
 import { href, Link, useNavigate, useRouteLoaderData } from "react-router";
 import { Button } from "~/components/core/button";
 import { authClient } from "~/lib/auth-client";

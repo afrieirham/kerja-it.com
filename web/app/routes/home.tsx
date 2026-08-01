@@ -4,6 +4,7 @@ import {
 	eq,
 	gte,
 	ilike,
+	ne,
 	notIlike,
 	or,
 	type SQL,
@@ -34,6 +35,12 @@ import { db } from "~/db";
 import { job } from "~/db/schema";
 import { searchCareerjet } from "~/lib/careerjet.server";
 import {
+	ARRANGEMENT_OPTIONS,
+	applyHref,
+	EMPLOYMENT_TYPE_OPTIONS,
+	labelFor,
+} from "~/lib/job-attributes";
+import {
 	FILTER_DIMENSIONS,
 	FILTER_KEYS,
 	FILTER_LABELS,
@@ -58,7 +65,12 @@ const PAGE_SIZE = 100;
 // the end so short/empty result sets still show them.
 const SPONSORED_EVERY = 10;
 
+// Employer-posted jobs get their own section above the table, capped —
+// no pagination at current volume.
+const EMPLOYER_LIMIT = 10;
+
 type JobItem = Route.ComponentProps["loaderData"]["jobs"][number];
+type DirectJobItem = Route.ComponentProps["loaderData"]["directJobs"][number];
 type SponsoredItem = Route.ComponentProps["loaderData"]["sponsored"][number];
 
 const ALL_LABELS = {
@@ -263,11 +275,15 @@ export async function loader({ request }: Route.LoaderArgs) {
 		]),
 	) as Record<FilterKey, string | null>;
 
-	const where = and(
+	const baseWhere = and(
 		buildWhere(q, filters),
 		gte(job.createdAt, sql`CURRENT_TIMESTAMP - INTERVAL '3 months'`),
 		eq(job.status, "published"),
 	);
+	// Direct (employer-posted) jobs render in their own section above the
+	// table — never inline — so the two sets partition with no duplication.
+	const where = and(baseWhere, ne(job.source, "direct"));
+	const directWhere = and(baseWhere, eq(job.source, "direct"));
 
 	// Sponsored jobs are proxied per-request: Careerjet requires the visitor's
 	// own ip/user-agent for click attribution. Locally there is no
@@ -276,7 +292,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 	const roleOption = findFilterOption("role", filters.role);
 	const locationOption = findFilterOption("location", filters.location);
 
-	const [jobs, total, sponsored] = await Promise.all([
+	const [jobs, total, sponsored, directJobs] = await Promise.all([
 		db
 			.select()
 			.from(job)
@@ -295,11 +311,24 @@ export async function loader({ request }: Route.LoaderArgs) {
 			userIp: userIp ?? null,
 			userAgent: request.headers.get("user-agent") ?? "",
 		}),
+		db
+			.select()
+			.from(job)
+			.where(directWhere)
+			.orderBy(
+				desc(sql`coalesce(${job.postedAt}, ${job.createdAt})`),
+				desc(job.id),
+			)
+			.limit(EMPLOYER_LIMIT),
 	]);
 
 	return {
 		jobs: jobs.map((j) => ({ ...j, postedAgo: relativeTime(j.createdAt) })),
 		sponsored,
+		directJobs: directJobs.map((j) => ({
+			...j,
+			postedAgo: relativeTime(j.createdAt),
+		})),
 		page,
 		totalPages: Math.max(1, Math.ceil(total / PAGE_SIZE)),
 		total,
@@ -349,9 +378,8 @@ function JobTableRow({ j }: { j: JobItem }) {
 			<TableCell>
 				<div className="truncate">
 					<a
-						href={j.url}
-						target="_blank"
-						rel="noreferrer"
+						href={applyHref(j)}
+						{...(j.url ? { target: "_blank", rel: "noreferrer" } : {})}
 						className="font-medium hover:underline"
 					>
 						{j.title}
@@ -363,6 +391,41 @@ function JobTableRow({ j }: { j: JobItem }) {
 			</TableCell>
 			<TableCell>
 				<Badge variant="secondary">{j.source}</Badge>
+			</TableCell>
+			<TableCell
+				className="text-muted-foreground"
+				title={formatPostedAt(j.createdAt)}
+			>
+				{j.postedAgo}
+			</TableCell>
+		</TableRow>
+	);
+}
+
+function DirectJobTableRow({ j }: { j: DirectJobItem }) {
+	const locationLabel = findFilterOption("location", j.location)?.label;
+	const bits = [
+		j.company,
+		j.salary,
+		labelFor(ARRANGEMENT_OPTIONS, j.arrangement),
+		labelFor(EMPLOYMENT_TYPE_OPTIONS, j.employmentType),
+		[j.city, locationLabel].filter(Boolean).join(", ") || null,
+	].filter(Boolean);
+
+	return (
+		<TableRow>
+			<TableCell>
+				<div className="truncate">
+					<Link to={`/jobs/${j.slug}`} className="font-medium hover:underline">
+						{j.title}
+					</Link>
+					{bits.length > 0 && (
+						<span className="text-muted-foreground">{` · ${bits.join(" · ")}`}</span>
+					)}
+				</div>
+			</TableCell>
+			<TableCell>
+				<Badge>Employer</Badge>
 			</TableCell>
 			<TableCell
 				className="text-muted-foreground"
@@ -409,7 +472,8 @@ function SponsoredTableRow({ s }: { s: SponsoredItem }) {
 }
 
 export default function Home({ loaderData }: Route.ComponentProps) {
-	const { jobs, sponsored, page, totalPages, total, q, filters } = loaderData;
+	const { jobs, sponsored, directJobs, page, totalPages, total, q, filters } =
+		loaderData;
 	const navigate = useNavigate();
 
 	// Merge owned + sponsored rows: interleaved, leftovers trailing.

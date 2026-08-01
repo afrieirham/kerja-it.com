@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Form, redirect, useNavigation } from "react-router";
 import { z } from "zod";
 import { Button } from "~/components/core/button";
+import { Field } from "~/components/core/field";
 import { Input } from "~/components/core/input";
 import {
 	Select,
@@ -17,11 +18,17 @@ import { job } from "~/db/schema";
 import { env } from "~/env.server";
 import { getSession } from "~/lib/auth.server";
 import {
+	ARRANGEMENT_OPTIONS,
+	type Arrangement,
+	EMPLOYMENT_TYPE_OPTIONS,
+	labelFor,
+} from "~/lib/job-attributes";
+import {
 	FILTER_DIMENSIONS,
 	FILTER_LABELS,
-	type FilterKey,
 	findFilterOption,
 } from "~/lib/job-filters";
+import { generateJobSlug } from "~/lib/job-slug.server";
 import { buildMeta, SITE_NAME, SITE_URL } from "~/lib/seo";
 import { escapeHtml, sendTelegramMessage } from "~/lib/telegram.server";
 import type { Route } from "./+types/post-a-job";
@@ -56,67 +63,153 @@ export async function loader({ request }: Route.LoaderArgs) {
 				label,
 			})),
 		},
+		arrangements: ARRANGEMENT_OPTIONS,
+		employmentTypes: EMPLOYMENT_TYPE_OPTIONS,
 	};
 }
 
-const formSchema = z.object({
-	title: z.string().trim().min(3).max(120),
-	company: z.string().trim().min(2).max(120),
-	applyUrl: z
-		.url("Enter a valid URL")
-		.max(500)
-		.refine((u) => u.startsWith("https://"), "Apply URL must use https://"),
-	description: z.string().trim().min(30).max(5000),
-	role: z.string(),
-	seniority: z.string(),
-	location: z.string(),
-	salaryMode: z.enum(["range", "exact"]),
-	salaryMin: z.coerce.number().int().min(1).max(1_000_000),
-	// Absent in exact mode (the input isn't rendered).
-	salaryMax: z.coerce.number().int().min(0).max(1_000_000).optional(),
-});
+const isHttpsUrl = (value: string) => {
+	try {
+		return new URL(value).protocol === "https:";
+	} catch {
+		return false;
+	}
+};
+
+const isEmail = (value: string) => z.email().safeParse(value).success;
+
+const formSchema = z
+	.object({
+		title: z
+			.string()
+			.trim()
+			.min(3, "Title is too short (min 3 characters)")
+			.max(120, "Title is too long (max 120 characters)"),
+		company: z
+			.string()
+			.trim()
+			.min(2, "Enter the company name")
+			.max(120, "Company is too long (max 120 characters)"),
+		applyUrl: z
+			.string()
+			.trim()
+			.max(500, "Apply URL is too long")
+			.refine(
+				(u) => u === "" || isHttpsUrl(u),
+				"Apply URL must be a valid https:// link",
+			),
+		applyEmail: z
+			.string()
+			.trim()
+			.max(254)
+			.refine((e) => e === "" || isEmail(e), "Enter a valid apply email"),
+		description: z
+			.string()
+			.trim()
+			.min(30, "Description is too short (min 30 characters)")
+			.max(5000, "Description is too long (max 5000 characters)"),
+		role: z.string(),
+		seniority: z.string(),
+		// Optional at the schema level: both fields are unmounted for remote
+		// jobs, so they are ABSENT from the FormData — requiredness for
+		// hybrid/on-site is enforced in the action.
+		location: z.string().optional(),
+		city: z
+			.string()
+			.trim()
+			.max(100, "City is too long (max 100 characters)")
+			.optional(),
+		arrangement: z.enum(["remote", "hybrid", "on-site"]),
+		employmentType: z.enum([
+			"full-time",
+			"part-time",
+			"internship",
+			"contract",
+		]),
+		salaryMode: z.enum(["range", "exact"]),
+		salaryMin: z.coerce.number().int().min(500, "Minimum RM500").max(1_000_000),
+		// Absent in exact mode (the input isn't rendered).
+		salaryMax: z.coerce
+			.number()
+			.int()
+			.min(500, "Minimum RM500")
+			.max(1_000_000)
+			.optional(),
+	})
+	.superRefine((data, ctx) => {
+		if (!data.applyUrl && !data.applyEmail) {
+			// Attach to BOTH fields so both inputs show the error.
+			for (const path of ["applyUrl", "applyEmail"] as const) {
+				ctx.addIssue({
+					code: "custom",
+					path: [path],
+					message: "Provide an apply URL, an apply email, or both.",
+				});
+			}
+		}
+	});
+
+/** Field-keyed errors; "form" is reserved for non-field failures. */
+type FieldErrors = Partial<Record<string, string>>;
+
+function toFieldErrors(error: z.ZodError): FieldErrors {
+	const errors: FieldErrors = {};
+	for (const issue of error.issues) {
+		const field = String(issue.path[0] ?? "form");
+		if (!errors[field]) errors[field] = issue.message;
+	}
+	return errors;
+}
 
 export async function action({ request }: Route.ActionArgs) {
 	const session = await getSession(request);
-	if (!session) return { error: "You must be signed in." };
+	if (!session) return { errors: { form: "You must be signed in." } };
 
 	const parsed = formSchema.safeParse(
 		Object.fromEntries(await request.formData()),
 	);
-	if (!parsed.success) {
-		return { error: parsed.error.issues[0]?.message ?? "Invalid submission." };
-	}
+	if (!parsed.success) return { errors: toFieldErrors(parsed.error) };
 	const data = parsed.data;
+
+	const errors: FieldErrors = {};
 
 	// Selects store exact job-filters.ts option values — direct posts skip
 	// the regex extractor entirely.
 	const role = findFilterOption("role", data.role)?.value ?? null;
-	if (!role) return { error: "Pick a valid role." };
+	if (!role) errors.role = "Pick a valid role.";
 	const seniority = data.seniority
 		? (findFilterOption("seniority", data.seniority)?.value ?? null)
 		: null;
-	if (data.seniority && !seniority) return { error: "Pick a valid seniority." };
-	const location = data.location
-		? (findFilterOption("location", data.location)?.value ?? null)
-		: null;
-	if (data.location && !location) return { error: "Pick a valid location." };
+	if (data.seniority && !seniority)
+		errors.seniority = "Pick a valid seniority.";
+
+	// Remote jobs carry no location at all — anything submitted is ignored.
+	let location: string | null = null;
+	let city: string | null = null;
+	if (data.arrangement !== "remote") {
+		location = findFilterOption("location", data.location ?? "")?.value ?? null;
+		if (!location) errors.location = "Pick a state.";
+		city = data.city || null;
+		if (!city) errors.city = "City is required for hybrid/on-site jobs.";
+	}
 
 	const salaryMin = data.salaryMin;
-	const salaryMax = data.salaryMode === "exact" ? salaryMin : data.salaryMax;
-	if (!salaryMax || salaryMax < salaryMin) {
-		return { error: "Salary max must be greater than or equal to the min." };
+	const salaryMaxInput =
+		data.salaryMode === "exact" ? salaryMin : data.salaryMax;
+	if (salaryMaxInput === undefined || salaryMaxInput < 1) {
+		errors.salaryMax = "Enter the salary max.";
+	} else if (salaryMaxInput < salaryMin) {
+		errors.salaryMax = "Max must be greater than or equal to the min.";
 	}
 
-	// Job.url is unique — a repost of a URL we already carry would conflict
-	// silently, so fail loudly instead.
-	const existing = await db
-		.select({ id: job.id })
-		.from(job)
-		.where(eq(job.url, data.applyUrl))
-		.limit(1);
-	if (existing.length > 0) {
-		return { error: "This job is already listed (same apply URL)." };
-	}
+	if (Object.keys(errors).length > 0) return { errors };
+
+	// The errors branch above returned for the undefined case; in exact
+	// mode this already folds to salaryMin.
+	const salaryMax = salaryMaxInput ?? salaryMin;
+
+	const applyUrl = data.applyUrl || null;
+	const applyEmail = data.applyEmail || null;
 
 	const rm = (n: number) => `RM${n.toLocaleString("en-US")}`;
 	const salary =
@@ -124,29 +217,67 @@ export async function action({ request }: Route.ActionArgs) {
 			? `${rm(salaryMin)} / month`
 			: `${rm(salaryMin)} – ${rm(salaryMax)} / month`;
 
-	await db.insert(job).values({
-		url: data.applyUrl,
+	const values = {
+		url: applyUrl,
 		title: data.title,
 		description: data.description,
 		company: data.company,
 		location,
+		city,
 		role,
 		seniority,
+		arrangement: data.arrangement,
+		employmentType: data.employmentType,
 		salary,
 		salaryMin,
 		salaryMax,
+		applyEmail,
 		source: "direct",
 		status: "pending",
 		postedById: session.user.id,
 		postedAt: null,
-	});
+	};
+
+	try {
+		// Job.url is unique — a repost of a URL we already carry would
+		// conflict silently, so fail loudly instead. Email-only posts skip
+		// the check: moderation is the dedupe gate there.
+		if (applyUrl) {
+			const existing = await db
+				.select({ id: job.id })
+				.from(job)
+				.where(eq(job.url, applyUrl))
+				.limit(1);
+			if (existing.length > 0) {
+				return {
+					errors: { applyUrl: "This job is already listed (same apply URL)." },
+				};
+			}
+		}
+
+		try {
+			await db
+				.insert(job)
+				.values({ ...values, slug: generateJobSlug(data.title, data.company) });
+		} catch {
+			// Slug collision on the unique index is effectively impossible —
+			// but the retry is free, and any OTHER insert error just throws
+			// again into the outer catch.
+			await db
+				.insert(job)
+				.values({ ...values, slug: generateJobSlug(data.title, data.company) });
+		}
+	} catch (error) {
+		console.error("post-a-job: save failed", error);
+		return { errors: { form: "Could not save the job — please try again." } };
+	}
 
 	// Moderation alert — fire-and-forget: a Telegram hiccup must not fail
 	// the submission, the job is safely pending in /admin either way.
 	if (env.TELEGRAM_ADMIN_CHAT_ID) {
 		const text = [
 			"<b>New job pending review</b>",
-			`${escapeHtml(data.title)} — ${escapeHtml(data.company)}`,
+			`${escapeHtml(data.title)} — ${escapeHtml(data.company)} · ${escapeHtml(labelFor(ARRANGEMENT_OPTIONS, data.arrangement) ?? "")}`,
 			escapeHtml(session.user.email),
 			`${SITE_URL}/admin`,
 		].join("\n");
@@ -156,19 +287,27 @@ export async function action({ request }: Route.ActionArgs) {
 	return { submitted: true };
 }
 
+function FieldError({ message }: { message?: string }) {
+	if (!message) return null;
+	return <p className="text-destructive text-xs">{message}</p>;
+}
+
 function FormSelect({
 	name,
-	filterKey,
+	label,
 	options,
 	required,
+	defaultValue,
+	error,
 }: {
-	name: FilterKey;
-	filterKey: FilterKey;
-	options: { value: string; label: string }[];
+	name: string;
+	label: string;
+	options: readonly { value: string; label: string }[];
 	required?: boolean;
+	defaultValue?: string | null;
+	error?: string;
 }) {
-	const [value, setValue] = useState<string | null>(null);
-	const label = FILTER_LABELS[filterKey];
+	const [value, setValue] = useState<string | null>(defaultValue ?? null);
 
 	return (
 		<div className="space-y-1">
@@ -181,7 +320,7 @@ function FormSelect({
 				onValueChange={(v) => setValue(v)}
 				items={options.map((o) => ({ value: o.value, label: o.label }))}
 			>
-				<SelectTrigger className="w-full">
+				<SelectTrigger className="w-full" aria-invalid={!!error}>
 					<SelectValue placeholder={`Select ${label.toLowerCase()}`} />
 				</SelectTrigger>
 				<SelectContent>
@@ -194,6 +333,7 @@ function FormSelect({
 			</Select>
 			{/* base-ui Select isn't form-associated — carry the value ourselves. */}
 			<input type="hidden" name={name} value={value ?? ""} />
+			<FieldError message={error} />
 		</div>
 	);
 }
@@ -202,10 +342,15 @@ export default function PostAJob({
 	loaderData,
 	actionData,
 }: Route.ComponentProps) {
-	const { selects } = loaderData;
+	const { selects, arrangements, employmentTypes } = loaderData;
 	const navigation = useNavigation();
 	const submitting = navigation.state === "submitting";
 	const [salaryMode, setSalaryMode] = useState<"range" | "exact">("range");
+	const [arrangement, setArrangement] = useState<Arrangement>("on-site");
+	const isRemote = arrangement === "remote";
+
+	const errors: FieldErrors | undefined =
+		actionData && "errors" in actionData ? actionData.errors : undefined;
 
 	if (actionData && "submitted" in actionData && actionData.submitted) {
 		return (
@@ -233,9 +378,9 @@ export default function PostAJob({
 					</p>
 				</div>
 
-				{actionData && "error" in actionData && actionData.error && (
+				{errors?.form && (
 					<p className="border border-destructive/30 bg-destructive/10 px-3 py-2 text-destructive text-xs">
-						{actionData.error}
+						{errors.form}
 					</p>
 				)}
 
@@ -251,7 +396,9 @@ export default function PostAJob({
 							minLength={3}
 							maxLength={120}
 							placeholder="Senior Frontend Engineer"
+							aria-invalid={!!errors?.title}
 						/>
+						<FieldError message={errors?.title} />
 					</div>
 
 					<div className="space-y-1">
@@ -265,42 +412,117 @@ export default function PostAJob({
 							minLength={2}
 							maxLength={120}
 							placeholder="Acme Sdn Bhd"
+							aria-invalid={!!errors?.company}
 						/>
+						<FieldError message={errors?.company} />
 					</div>
 
-					<div className="space-y-1">
-						<label htmlFor="applyUrl" className="text-xs font-medium">
-							Apply URL
-						</label>
-						<Input
-							id="applyUrl"
-							name="applyUrl"
-							type="url"
-							required
-							maxLength={500}
-							placeholder="https://careers.acme.com/jobs/123"
-						/>
-						<p className="text-muted-foreground text-xs">
-							Where candidates apply — your ATS or careers page.
-						</p>
-					</div>
+					<fieldset className="space-y-2">
+						<legend className="text-xs font-medium">
+							How candidates apply — at least one required
+						</legend>
+						<div className="space-y-1">
+							<label
+								htmlFor="applyUrl"
+								className="text-muted-foreground text-xs"
+							>
+								Apply URL
+							</label>
+							<Input
+								id="applyUrl"
+								name="applyUrl"
+								type="url"
+								maxLength={500}
+								placeholder="https://careers.acme.com/jobs/123"
+								aria-invalid={!!errors?.applyUrl}
+							/>
+							<FieldError message={errors?.applyUrl} />
+						</div>
+						<div className="space-y-1">
+							<label
+								htmlFor="applyEmail"
+								className="text-muted-foreground text-xs"
+							>
+								Apply email
+							</label>
+							<Input
+								id="applyEmail"
+								name="applyEmail"
+								type="email"
+								maxLength={254}
+								placeholder="hiring@acme.com"
+								aria-invalid={!!errors?.applyEmail}
+							/>
+							<FieldError message={errors?.applyEmail} />
+						</div>
+					</fieldset>
 
 					<FormSelect
 						name="role"
-						filterKey="role"
+						label={FILTER_LABELS.role}
 						options={selects.role}
 						required
+						error={errors?.role}
 					/>
+
+					<div className="space-y-1">
+						<span className="text-xs font-medium">Working arrangement</span>
+						<div className="flex gap-4 text-xs">
+							{arrangements.map((a) => (
+								<label key={a.value} className="inline-flex items-center gap-1">
+									<input
+										type="radio"
+										name="arrangement"
+										value={a.value}
+										checked={arrangement === a.value}
+										onChange={() => setArrangement(a.value)}
+									/>
+									{a.label}
+								</label>
+							))}
+						</div>
+					</div>
+
+					{!isRemote && (
+						<div className="grid grid-cols-2 gap-2">
+							<FormSelect
+								name="location"
+								label="State"
+								options={selects.location}
+								required
+								error={errors?.location}
+							/>
+							<div className="space-y-1">
+								<label htmlFor="city" className="text-xs font-medium">
+									City
+								</label>
+								<Input
+									id="city"
+									name="city"
+									required
+									maxLength={100}
+									placeholder="Bangsar"
+									aria-invalid={!!errors?.city}
+								/>
+								<FieldError message={errors?.city} />
+							</div>
+						</div>
+					)}
+
 					<div className="grid grid-cols-2 gap-2">
 						<FormSelect
 							name="seniority"
-							filterKey="seniority"
+							label={FILTER_LABELS.seniority}
 							options={selects.seniority}
+							error={errors?.seniority}
 						/>
 						<FormSelect
-							name="location"
-							filterKey="location"
-							options={selects.location}
+							name="employmentType"
+							label="Employment type"
+							options={employmentTypes}
+							required
+							defaultValue="full-time"
+							error={errors?.employmentType}
 						/>
 					</div>
 
@@ -331,27 +553,35 @@ export default function PostAJob({
 							</label>
 						</div>
 						<div className="flex gap-2">
-							<Input
-								name="salaryMin"
-								type="number"
-								min={1}
-								max={1000000}
-								required
-								placeholder={
-									salaryMode === "exact" ? "Amount" : "Min, e.g. 5000"
-								}
-								aria-label={salaryMode === "exact" ? "Salary" : "Salary min"}
-							/>
-							{salaryMode === "range" && (
+							<Field data-invalid={errors?.salaryMin}>
 								<Input
-									name="salaryMax"
+									name="salaryMin"
 									type="number"
 									min={1}
 									max={1000000}
 									required
-									placeholder="Max, e.g. 8000"
-									aria-label="Salary max"
+									placeholder={
+										salaryMode === "exact" ? "Amount" : "Min, e.g. 5000"
+									}
+									aria-label={salaryMode === "exact" ? "Salary" : "Salary min"}
+									aria-invalid={!!errors?.salaryMin}
 								/>
+								<FieldError message={errors?.salaryMin} />
+							</Field>
+							{salaryMode === "range" && (
+								<Field data-invalid={errors?.salaryMax}>
+									<Input
+										name="salaryMax"
+										type="number"
+										min={1}
+										max={1000000}
+										required
+										placeholder="Max, e.g. 8000"
+										aria-label="Salary max"
+										aria-invalid={!!errors?.salaryMax}
+									/>
+									<FieldError message={errors?.salaryMax} />
+								</Field>
 							)}
 						</div>
 					</fieldset>
@@ -366,10 +596,12 @@ export default function PostAJob({
 							required
 							minLength={30}
 							maxLength={5000}
-							rows={8}
-							className="w-full rounded-none border border-input bg-transparent px-2.5 py-2 text-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/50"
+							rows={18}
+							className="w-full rounded-none border border-input bg-transparent px-2.5 py-2 text-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-1 aria-invalid:ring-destructive/20"
 							placeholder="What the role does, the stack, and what you're looking for…"
+							aria-invalid={!!errors?.description}
 						/>
+						<FieldError message={errors?.description} />
 					</div>
 
 					<Button type="submit" disabled={submitting}>

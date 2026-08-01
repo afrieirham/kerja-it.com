@@ -5,6 +5,7 @@ export default [
 	route("sign-in", "routes/sign-in.tsx"),
 	route("post-a-job", "routes/post-a-job.tsx"),
 	route("admin", "routes/admin.tsx"),
+	route("jobs/:slug", "routes/jobs.$slug.tsx"),
 	route("robots.txt", "routes/robots.txt.ts"),
 	route("sitemap.xml", "routes/sitemap.xml.ts"),
 	route("api/auth/*", "routes/api.auth.$.ts"),

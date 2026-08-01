@@ -27,7 +27,7 @@ const COLUMNS = {
 
 const WINDOW = sql`CURRENT_TIMESTAMP - INTERVAL '3 months'`;
 
-type Entry = { path: string; lastmod: string | null };
+type Entry = { path: string; lastmod: string | null; priority?: string };
 
 async function entriesFor(key: FilterKey): Promise<Entry[]> {
 	const column = COLUMNS[key];
@@ -70,10 +70,25 @@ const escapeXml = (value: string) =>
 	);
 
 export async function loader() {
-	const [roles, seniorities, locations] = await Promise.all([
+	const [roles, seniorities, locations, jobPages] = await Promise.all([
 		entriesFor("role"),
 		entriesFor("seniority"),
 		entriesFor("location"),
+		// On-site pages for employer-posted jobs (the only jobs that HAVE
+		// pages). Published only — a noindexed URL must never appear here.
+		db
+			.select({
+				slug: job.slug,
+				lastmod: sql<string>`to_char(${job.createdAt}, 'YYYY-MM-DD')`,
+			})
+			.from(job)
+			.where(
+				and(
+					eq(job.source, "direct"),
+					eq(job.status, "published"),
+					isNotNull(job.slug),
+				),
+			),
 	]);
 
 	const [{ lastmod: homeLastmod } = { lastmod: null }] = await db
@@ -84,6 +99,11 @@ export async function loader() {
 
 	const entries: Entry[] = [
 		{ path: "/", lastmod: homeLastmod },
+		...jobPages.map(({ slug, lastmod }) => ({
+			path: `/jobs/${slug}`,
+			lastmod,
+			priority: "0.8",
+		})),
 		...roles,
 		...seniorities,
 		...locations,
@@ -92,12 +112,12 @@ export async function loader() {
 	const body = [
 		'<?xml version="1.0" encoding="UTF-8"?>',
 		'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
-		...entries.map(({ path, lastmod }) =>
+		...entries.map(({ path, lastmod, priority }) =>
 			[
 				"\t<url>",
 				`\t\t<loc>${escapeXml(`${SITE_URL}${path}`)}</loc>`,
 				lastmod ? `\t\t<lastmod>${lastmod}</lastmod>` : null,
-				`\t\t<priority>${path === "/" ? "1.0" : "0.6"}</priority>`,
+				`\t\t<priority>${priority ?? (path === "/" ? "1.0" : "0.6")}</priority>`,
 				"\t</url>",
 			]
 				.filter(Boolean)
@@ -110,9 +130,9 @@ export async function loader() {
 	return new Response(body, {
 		headers: {
 			"Content-Type": "application/xml; charset=utf-8",
-			// Job/Recruiter tables have no index on createdAt or the extracted
-			// columns (schema.ts), so these GROUP BYs are seq scans. Bots hit
-			// this rarely; cache to keep it off the hot path.
+			// The Job table has no index on createdAt or the extracted columns
+			// (schema.ts), so these GROUP BYs are seq scans. Bots hit this
+			// rarely; cache to keep it off the hot path.
 			"Cache-Control": "public, max-age=3600",
 		},
 	});
