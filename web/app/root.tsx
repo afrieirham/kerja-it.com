@@ -7,6 +7,7 @@ import {
 	ScrollRestoration,
 } from "react-router";
 
+import { TooltipProvider } from "~/components/core/tooltip";
 import { buildMeta, SITE_NAME } from "~/lib/seo";
 import type { Route } from "./+types/root";
 import "./app.css";
@@ -58,7 +59,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 				)}
 			</head>
 			<body>
-				{children}
+				<TooltipProvider>{children}</TooltipProvider>
 				<ScrollRestoration />
 				<Scripts />
 			</body>
