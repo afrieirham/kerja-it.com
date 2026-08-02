@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, gte, sql } from "drizzle-orm";
 import { useState } from "react";
 import { Form, redirect, useNavigation } from "react-router";
 import { z } from "zod";
@@ -14,9 +14,10 @@ import {
 } from "~/components/core/select";
 import { Header } from "~/components/widget/header";
 import { db } from "~/db";
-import { job } from "~/db/schema";
+import { companyProfile, job } from "~/db/schema";
 import { env } from "~/env.server";
 import { getSession } from "~/lib/auth.server";
+import { getCreditBalance, hasActiveFreePost } from "~/lib/credits.server";
 import {
 	ARRANGEMENT_OPTIONS,
 	type Arrangement,
@@ -47,8 +48,15 @@ export async function loader({ request }: Route.LoaderArgs) {
 		throw redirect(`/sign-in?redirect=${encodeURIComponent("/post-a-job")}`);
 	}
 
+	const [profile] = await db
+		.select({ name: companyProfile.name })
+		.from(companyProfile)
+		.where(eq(companyProfile.userId, session.user.id))
+		.limit(1);
+
 	return {
 		user: { name: session.user.name, email: session.user.email },
+		companyDefault: profile?.name ?? "",
 		// value/label only — the ILIKE patterns stay server-side.
 		selects: {
 			role: FILTER_DIMENSIONS.role.options.map(({ value, label }) => ({
@@ -204,6 +212,21 @@ export async function action({ request }: Route.ActionArgs) {
 
 	if (Object.keys(errors).length > 0) return { errors };
 
+	// Free tier first (1 active standard post per account), then pack
+	// credits. Paid posts get the featured perks on approval.
+	let isPaid = false;
+	if (await hasActiveFreePost(session.user.id)) {
+		const balance = await getCreditBalance(session.user.id);
+		if (balance <= 0) {
+			return {
+				errors: {
+					form: "You've used your free post. Get a pack at /pricing to post more.",
+				},
+			};
+		}
+		isPaid = true;
+	}
+
 	// The errors branch above returned for the undefined case; in exact
 	// mode this already folds to salaryMin.
 	const salaryMax = salaryMaxInput ?? salaryMin;
@@ -232,6 +255,7 @@ export async function action({ request }: Route.ActionArgs) {
 		salaryMin,
 		salaryMax,
 		applyEmail,
+		isPaid,
 		source: "direct",
 		status: "pending",
 		postedById: session.user.id,
@@ -240,13 +264,19 @@ export async function action({ request }: Route.ActionArgs) {
 
 	try {
 		// Job.url is unique — a repost of a URL we already carry would
-		// conflict silently, so fail loudly instead. Email-only posts skip
-		// the check: moderation is the dedupe gate there.
+		// conflict silently, so fail loudly instead. Scoped to the 3-month
+		// listing window: older roles may be reposted fresh. Email-only
+		// posts skip the check: moderation is the dedupe gate there.
 		if (applyUrl) {
 			const existing = await db
 				.select({ id: job.id })
 				.from(job)
-				.where(eq(job.url, applyUrl))
+				.where(
+					and(
+						eq(job.url, applyUrl),
+						gte(job.createdAt, sql`CURRENT_TIMESTAMP - INTERVAL '3 months'`),
+					),
+				)
 				.limit(1);
 			if (existing.length > 0) {
 				return {
@@ -284,7 +314,7 @@ export async function action({ request }: Route.ActionArgs) {
 		void sendTelegramMessage(text, env.TELEGRAM_ADMIN_CHAT_ID);
 	}
 
-	return { submitted: true };
+	return { submitted: true, featured: isPaid };
 }
 
 function FieldError({ message }: { message?: string }) {
@@ -342,7 +372,7 @@ export default function PostAJob({
 	loaderData,
 	actionData,
 }: Route.ComponentProps) {
-	const { selects, arrangements, employmentTypes } = loaderData;
+	const { selects, arrangements, employmentTypes, companyDefault } = loaderData;
 	const navigation = useNavigation();
 	const submitting = navigation.state === "submitting";
 	const [salaryMode, setSalaryMode] = useState<"range" | "exact">("range");
@@ -361,6 +391,12 @@ export default function PostAJob({
 					<p className="text-muted-foreground text-sm">
 						We review every post before it goes live — usually within a day.
 					</p>
+					{actionData && "featured" in actionData && actionData.featured && (
+						<p className="text-muted-foreground text-sm">
+							As a featured post, it will be pinned and pushed to Telegram once
+							approved.
+						</p>
+					)}
 				</main>
 			</div>
 		);
@@ -412,6 +448,7 @@ export default function PostAJob({
 							minLength={2}
 							maxLength={120}
 							placeholder="Acme Sdn Bhd"
+							defaultValue={companyDefault}
 							aria-invalid={!!errors?.company}
 						/>
 						<FieldError message={errors?.company} />

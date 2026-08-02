@@ -1,5 +1,6 @@
 import { desc, eq } from "drizzle-orm";
 import { Form } from "react-router";
+import { Badge } from "~/components/core/badge";
 import { Button } from "~/components/core/button";
 import { Table, TableBody, TableCell, TableRow } from "~/components/core/table";
 import { Header } from "~/components/widget/header";
@@ -13,8 +14,12 @@ import {
 	EMPLOYMENT_TYPE_OPTIONS,
 	labelFor,
 } from "~/lib/job-attributes";
-import { buildMeta, SITE_NAME } from "~/lib/seo";
-import { isTelegramConfigured } from "~/lib/telegram.server";
+import { buildMeta, SITE_NAME, SITE_URL } from "~/lib/seo";
+import {
+	escapeHtml,
+	isTelegramConfigured,
+	sendTelegramMessage,
+} from "~/lib/telegram.server";
 import type { Route } from "./+types/admin";
 
 export function meta() {
@@ -44,6 +49,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 			salary: job.salary,
 			url: job.url,
 			applyEmail: job.applyEmail,
+			isPaid: job.isPaid,
 			arrangement: job.arrangement,
 			employmentType: job.employmentType,
 			city: job.city,
@@ -71,7 +77,42 @@ export async function action({ request }: Route.ActionArgs) {
 	if (!id) return { ok: false };
 
 	if (intent === "approve") {
-		await db.update(job).set({ status: "published" }).where(eq(job.id, id));
+		const [j] = await db
+			.select({
+				isPaid: job.isPaid,
+				slug: job.slug,
+				title: job.title,
+				company: job.company,
+				salary: job.salary,
+			})
+			.from(job)
+			.where(eq(job.id, id))
+			.limit(1);
+
+		// Featured clock starts at approval, not submission — the employer
+		// pays for 30 live days, not 30 days in the review queue.
+		const featuredUntil = j?.isPaid
+			? new Date(Date.now() + 30 * 86_400_000).toISOString()
+			: null;
+
+		await db
+			.update(job)
+			.set({
+				status: "published",
+				...(featuredUntil ? { featuredUntil } : {}),
+			})
+			.where(eq(job.id, id));
+
+		// Instant dedicated Telegram post — the headline featured perk.
+		// Fire-and-forget: the approval itself already succeeded.
+		if (j?.isPaid && j.slug) {
+			const meta = [j.company, j.salary].filter(Boolean).join(" · ");
+			const text = [
+				"<b>Featured job</b>",
+				`<a href="${SITE_URL}/jobs/${escapeHtml(j.slug)}">${escapeHtml(j.title)}</a>${meta ? ` — ${escapeHtml(meta)}` : ""}`,
+			].join("\n");
+			void sendTelegramMessage(text);
+		}
 	} else if (intent === "delete") {
 		await db.delete(job).where(eq(job.id, id));
 	}
@@ -126,6 +167,7 @@ export default function Admin({ loaderData }: Route.ComponentProps) {
 												>
 													{j.title}
 												</a>
+												{j.isPaid && <Badge className="ml-1">Paid</Badge>}
 												<span className="text-muted-foreground">
 													{j.company ? ` · ${j.company}` : ""}
 													{j.salary ? ` · ${j.salary}` : ""}

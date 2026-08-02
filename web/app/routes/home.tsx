@@ -200,6 +200,16 @@ function describeQuery(
 	].join("");
 }
 
+function rootDomain(hostname: string) {
+	let parts = hostname.split(".");
+	if (parts.length <= 2) return hostname;
+
+	parts = parts.slice(-3);
+	if (["co", "com"].indexOf(parts[1]) > -1) return parts.join(".");
+
+	return parts.slice(-2).join(".");
+}
+
 export function meta({ location, loaderData }: Route.MetaArgs) {
 	// loaderData is undefined when the ErrorBoundary renders.
 	if (!loaderData) {
@@ -316,6 +326,10 @@ export async function loader({ request }: Route.LoaderArgs) {
 			.from(job)
 			.where(directWhere)
 			.orderBy(
+				// Featured (paid) posts pin to the top of the section.
+				desc(
+					sql`(${job.featuredUntil} is not null and ${job.featuredUntil} > CURRENT_TIMESTAMP)`,
+				),
 				desc(sql`coalesce(${job.postedAt}, ${job.createdAt})`),
 				desc(job.id),
 			)
@@ -328,6 +342,10 @@ export async function loader({ request }: Route.LoaderArgs) {
 		directJobs: directJobs.map((j) => ({
 			...j,
 			postedAgo: relativeTime(j.createdAt),
+			isFeatured: Boolean(
+				j.featuredUntil &&
+					parseCreatedAt(j.featuredUntil).getTime() > Date.now(),
+			),
 		})),
 		page,
 		totalPages: Math.max(1, Math.ceil(total / PAGE_SIZE)),
@@ -376,7 +394,7 @@ function JobTableRow({ j }: { j: JobItem }) {
 	return (
 		<TableRow>
 			<TableCell>
-				<div className="truncate">
+				<div className="truncate max-w-5xl">
 					<a
 						href={applyHref(j)}
 						{...(j.url ? { target: "_blank", rel: "noreferrer" } : {})}
@@ -389,11 +407,11 @@ function JobTableRow({ j }: { j: JobItem }) {
 					)}
 				</div>
 			</TableCell>
-			<TableCell>
-				<Badge variant="secondary">{j.source}</Badge>
+			<TableCell className="w-full text-left">
+				<Badge variant="secondary">{rootDomain(j.source)}</Badge>
 			</TableCell>
 			<TableCell
-				className="text-muted-foreground"
+				className="text-muted-foreground text-right"
 				title={formatPostedAt(j.createdAt)}
 			>
 				{j.postedAgo}
@@ -415,7 +433,7 @@ function DirectJobTableRow({ j }: { j: DirectJobItem }) {
 	return (
 		<TableRow>
 			<TableCell>
-				<div className="truncate">
+				<div className="truncate max-w-5xl">
 					<Link to={`/jobs/${j.slug}`} className="font-medium hover:underline">
 						{j.title}
 					</Link>
@@ -424,11 +442,15 @@ function DirectJobTableRow({ j }: { j: DirectJobItem }) {
 					)}
 				</div>
 			</TableCell>
-			<TableCell>
-				<Badge>Employer</Badge>
+			<TableCell className="w-full text-left">
+				{j.isFeatured ? (
+					<Badge>featured</Badge>
+				) : (
+					<Badge variant="secondary">employer</Badge>
+				)}
 			</TableCell>
 			<TableCell
-				className="text-muted-foreground"
+				className="text-muted-foreground text-right"
 				title={formatPostedAt(j.createdAt)}
 			>
 				{j.postedAgo}
@@ -441,7 +463,7 @@ function SponsoredTableRow({ s }: { s: SponsoredItem }) {
 	return (
 		<TableRow>
 			<TableCell>
-				<div className="truncate">
+				<div className="truncate max-w-5xl">
 					<a
 						href={s.url}
 						target="_blank"
@@ -458,11 +480,11 @@ function SponsoredTableRow({ s }: { s: SponsoredItem }) {
 					)}
 				</div>
 			</TableCell>
-			<TableCell>
+			<TableCell className="w-full text-left">
 				<Badge variant="outline">Sponsored</Badge>
 			</TableCell>
 			<TableCell
-				className="text-muted-foreground"
+				className="text-muted-foreground text-right"
 				title={s.date ? formatPostedAtFromIso(s.date) : undefined}
 			>
 				{s.date ? relativeTimeFromIso(s.date) : "—"}
@@ -531,14 +553,14 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 			<div className="sticky top-0 z-20 bg-white pb-2">
 				<Header />
 				<div className="container mx-auto pb-3 pt-3">
-					<div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+					<div className="grid grid-cols-1 gap-2 sm:grid-cols-4">
 						<Form method="get" className="flex gap-2">
 							<Input
 								key={q}
 								name="q"
 								defaultValue={q}
 								placeholder="Search jobs…"
-								className="max-w-sm"
+								className="w-full"
 							/>
 							{activeFilters.map((f) => (
 								<input
@@ -588,6 +610,19 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 				</div>
 			</div>
 			<main className="container mx-auto space-y-4 py-4">
+				{directJobs.length > 0 && (
+					<div className="space-y-2">
+						<h2 className="font-medium text-xs">Direct Job Listings</h2>
+						<Table className="border">
+							<TableBody>
+								{directJobs.map((j) => (
+									<DirectJobTableRow key={j.id} j={j} />
+								))}
+							</TableBody>
+						</Table>
+					</div>
+				)}
+
 				<Table>
 					<TableBody>
 						{rows.map((row) =>

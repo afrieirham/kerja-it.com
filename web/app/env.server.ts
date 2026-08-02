@@ -31,6 +31,9 @@ export const env = createEnv({
 		LINKEDIN_CLIENT_SECRET: z.string().optional(),
 		// Optional — comma-separated emails allowed into /admin.
 		ADMIN_EMAILS: z.string().optional(),
+		// Optional — unset disables paid packs (checkout/webhook no-op).
+		STRIPE_SECRET_KEY: z.string().optional(),
+		STRIPE_WEBHOOK_SECRET: z.string().optional(),
 	},
 	runtimeEnv: process.env,
 	emptyStringAsUndefined: true,

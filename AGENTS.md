@@ -29,6 +29,8 @@ gotchas an agent is likely to miss.
   `TELEGRAM_ADMIN_CHAT_ID` are optional: a sign-in provider enables only
   when BOTH its vars are set; with none, `/sign-in` renders "unavailable"
   instead of crashing, and unset admin vars just skip alerts/gate `/admin`.
+  `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET` are optional too — unset
+  disables paid packs (checkout 503s, pricing shows "coming soon").
   Client-side env only via `VITE_`-prefixed vars in `app/env.client.ts`.
 - **`.client.ts` is stubbed on the server.** The `react-router:dot-client`
   Vite plugin rewrites *every* export of any `*.client.ts(x)` module to
@@ -78,19 +80,34 @@ gotchas an agent is likely to miss.
   Invariant: **every public Job query filters `status = 'published'`** —
   home loader, job pages, sitemap.xml and the telegram-digest all do;
   never add a query without it.
+- Pricing model (`/pricing`, packs in `app/lib/job-packs.ts`): **free** = 1
+  active standard post per account; **paid packs** (RM50/120/175 for
+  1/3/5 posts) buy credits where **every paid post is featured** (pin +
+  badge 30d, instant Telegram post on approval, digest top slot). Credits
+  are computed (`Σ packPosts of paid JobOrders − count(isPaid jobs)`,
+  `app/lib/credits.server.ts`) — never a stored counter; deleting a paid
+  post frees its credit, which IS the rejection-refund. Stripe Checkout
+  (`/api/checkout`) + webhook (`/api/webhooks/stripe`, raw-body signature
+  check, idempotent via unique `stripeSessionId`); `featuredUntil` is
+  stamped at APPROVAL (30 live days), not submission. `/dashboard` gives
+  employers their posts, credit balance and a 1:1 `CompanyProfile` that
+  only prefills the form (jobs keep their own `company` text snapshot).
 - Path alias `~/*` → `./app/*`.
 - shadcn: generated UI lives in `~/components/core` (not `ui`), built on
   `@base-ui/react` (not Radix), lucide icons. App-specific components go in
   `~/components/widget`.
 - Routes are explicitly registered in `app/routes.ts` — `home`, `sign-in`,
-  `post-a-job`, `admin`, `jobs/:slug`, `robots.txt`, `sitemap.xml`,
-  `api/auth/*`, `api/cron/save-jobs` and `api/cron/telegram-digest`.
+  `post-a-job`, `pricing`, `dashboard`, `admin`, `jobs/:slug`,
+  `robots.txt`, `sitemap.xml`, `api/auth/*`, `api/checkout`,
+  `api/webhooks/stripe`, `api/cron/save-jobs` and
+  `api/cron/telegram-digest`.
 - Drizzle schema (`app/db/schema.ts`) uses quoted PascalCase table names for
-  app tables (`"Job"`); the better-auth tables (`user`, `session`,
-  `account`, `verification`) keep their CLI-generated lowercase names as a
-  documented exception. There are no versioned migrations — changes are
-  applied with `npm run db:push` (the `app/db/migrations` output dir in
-  `drizzle.config.ts` is configured but unused).
+  app tables (`"Job"`, `"JobOrder"`, `"CompanyProfile"`); the better-auth
+  tables (`user`, `session`, `account`, `verification`) keep their
+  CLI-generated lowercase names as a documented exception. There are no
+  versioned migrations — changes are applied with `npm run db:push` (the
+  `app/db/migrations` output dir in `drizzle.config.ts` is configured but
+  unused).
 - Write-time extraction: `app/lib/job-extract.server.ts` (`extractJob`)
   cleans raw title/description (hacks moved from the scraper) and extracts
   `company`/`location`/`role`/`seniority`/`salary`/`postedAt` — all

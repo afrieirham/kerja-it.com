@@ -59,6 +59,12 @@ export function Header() {
 										<p>My Account</p>
 										<p>{user.email}</p>
 									</DropdownMenuLabel>
+									<DropdownMenuItem render={<Link to={href("/dashboard")} />}>
+										Dashboard
+									</DropdownMenuItem>
+									<DropdownMenuItem render={<Link to={href("/pricing")} />}>
+										Pricing
+									</DropdownMenuItem>
 								</DropdownMenuGroup>
 								<DropdownMenuSeparator />
 								<DropdownMenuGroup>
@@ -67,8 +73,12 @@ export function Header() {
 							</DropdownMenuContent>
 						</DropdownMenu>
 					) : (
-						<Button size="xs" variant="link">
-							<Link to={href("/sign-in")}>Login</Link>
+						<Button
+							size="xs"
+							variant="link"
+							render={<Link to={href("/sign-in")} />}
+						>
+							Login
 						</Button>
 					)}
 				</div>

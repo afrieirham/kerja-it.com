@@ -99,6 +99,8 @@ export async function loader() {
 
 	const entries: Entry[] = [
 		{ path: "/", lastmod: homeLastmod },
+		{ path: "/pricing", lastmod: null },
+		{ path: "/post-a-job", lastmod: null },
 		...jobPages.map(({ slug, lastmod }) => ({
 			path: `/jobs/${slug}`,
 			lastmod,

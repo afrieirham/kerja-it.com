@@ -60,7 +60,14 @@ export async function action({ request }: Route.ActionArgs) {
 			.select()
 			.from(job)
 			.where(where)
-			.orderBy(desc(job.createdAt), desc(job.id))
+			.orderBy(
+				// Featured (paid) posts lead the digest.
+				desc(
+					sql`(${job.featuredUntil} is not null and ${job.featuredUntil} > CURRENT_TIMESTAMP)`,
+				),
+				desc(job.createdAt),
+				desc(job.id),
+			)
 			.limit(MAX_JOBS),
 		db.$count(job, where),
 	]);
@@ -78,7 +85,14 @@ export async function action({ request }: Route.ActionArgs) {
 
 	const lines = rows.map(({ j, path }, i) => {
 		const href = path.startsWith("/") ? `${SITE_URL}${path}` : path;
-		const meta = [j.company, j.source].filter(Boolean).join(" · ");
+		const featured = Boolean(
+			j.featuredUntil &&
+				new Date(`${j.featuredUntil.replace(" ", "T")}Z`).getTime() >
+					Date.now(),
+		);
+		const meta = [j.company, j.source, featured ? "featured" : null]
+			.filter(Boolean)
+			.join(" · ");
 		const title = `<a href="${escapeHtml(href)}">${escapeHtml(j.title)}</a>`;
 		return `${i + 1}. ${title}${meta ? ` — ${escapeHtml(meta)}` : ""}`;
 	});
