@@ -8,6 +8,7 @@ import {
 	type SQL,
 	sql,
 } from "drizzle-orm";
+import { useEffect, useState } from "react";
 import { Form, Link, useNavigate } from "react-router";
 import { Badge } from "~/components/core/badge";
 import { Input } from "~/components/core/input";
@@ -39,6 +40,7 @@ import {
 	type FilterDimension,
 	type FilterKey,
 	findFilterOption,
+	findFilterOptions,
 } from "~/lib/job-filters";
 import {
 	absoluteUrl,
@@ -69,6 +71,14 @@ const ALL_LABELS = {
 type VisibleFilterKey = keyof typeof ALL_LABELS;
 
 const FILTER_SELECT_KEYS = Object.keys(ALL_LABELS) as VisibleFilterKey[];
+
+const SEARCHABLE_FILTER_KEYS = new Set<VisibleFilterKey>(["role", "location"]);
+
+const FILTER_COUNT_LABELS = {
+	role: ["role", "roles"],
+	seniority: ["seniority", "seniorities"],
+	location: ["location", "locations"],
+} as const satisfies Record<VisibleFilterKey, readonly [string, string]>;
 
 const postedDateFormatter = new Intl.DateTimeFormat("en-GB", {
 	dateStyle: "medium",
@@ -115,7 +125,7 @@ function escapeLike(value: string) {
 	return value.replace(/[\\%_]/g, (match) => `\\${match}`);
 }
 
-function buildWhere(q: string, filters: Record<FilterKey, string | null>) {
+function buildWhere(q: string, filters: Record<FilterKey, string[]>) {
 	const conditions: (SQL | undefined)[] = [];
 
 	for (const token of q.split(/\s+/).filter(Boolean)) {
@@ -127,16 +137,19 @@ function buildWhere(q: string, filters: Record<FilterKey, string | null>) {
 
 	for (const key of FILTER_KEYS) {
 		const dimension = FILTER_DIMENSIONS[key];
-		const option = findFilterOption(key, filters[key]);
-		if (!option) continue;
+		const options = findFilterOptions(key, filters[key]);
+		if (options.length === 0) continue;
 
 		const fields = dimension.searchDescription
 			? [job.title, job.description]
 			: [job.title];
+		const matches = options.flatMap((option) =>
+			option.patterns.map((pattern) => ({ option, pattern })),
+		);
 
 		conditions.push(
 			or(
-				...option.patterns.map((pattern) =>
+				...matches.map(({ option, pattern }) =>
 					or(
 						...fields.map((field) =>
 							and(
@@ -169,12 +182,12 @@ function cleanQuery(q: string) {
  */
 function describeQuery(
 	q: string,
-	filters: Record<FilterKey, string | null>,
+	filters: Record<FilterKey, string[]>,
 	count?: number,
 ) {
-	const seniority = findFilterOption("seniority", filters.seniority)?.label;
-	const role = findFilterOption("role", filters.role)?.label;
-	const location = findFilterOption("location", filters.location)?.label;
+	const seniority = findFilterOption("seniority", filters.seniority[0])?.label;
+	const role = findFilterOption("role", filters.role[0])?.label;
+	const location = findFilterOption("location", filters.location[0])?.label;
 
 	const subject = [seniority, role].filter(Boolean).join(" ") || "Tech";
 	const noun = count === 1 ? "Job" : "Jobs";
@@ -194,7 +207,8 @@ export function meta({ location, loaderData }: Route.MetaArgs) {
 	}
 
 	const { q, filters, page, total, jobs } = loaderData;
-	const isBare = !q && FILTER_KEYS.every((key) => !filters[key]) && page === 1;
+	const isBare =
+		!q && FILTER_KEYS.every((key) => !filters[key][0]) && page === 1;
 	const path = canonicalPath({ q, filters, page });
 
 	// Zero rows on THIS page. Covers both an empty filter combo and an
@@ -258,9 +272,12 @@ export async function loader({ request }: Route.LoaderArgs) {
 	const filters = Object.fromEntries(
 		FILTER_KEYS.map((key) => [
 			key,
-			findFilterOption(key, url.searchParams.get(key))?.value ?? null,
+			findFilterOptions(
+				key,
+				url.searchParams.getAll(key).flatMap((value) => value.split(",")),
+			).map((o) => o.value),
 		]),
-	) as Record<FilterKey, string | null>;
+	) as Record<FilterKey, string[]>;
 
 	const where = and(
 		buildWhere(q, filters),
@@ -271,8 +288,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 	// own ip/user-agent for click attribution. Locally there is no
 	// x-forwarded-for — searchCareerjet falls back to CAREERJET_DEV_IP.
 	const userIp = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-	const roleOption = findFilterOption("role", filters.role);
-	const locationOption = findFilterOption("location", filters.location);
+	const roleOption = findFilterOption("role", filters.role[0]);
+	const locationOption = findFilterOption("location", filters.location[0]);
 
 	const [jobs, total, sponsored] = await Promise.all([
 		db
@@ -309,33 +326,84 @@ export async function loader({ request }: Route.LoaderArgs) {
 function FilterSelect({
 	dimensionKey,
 	dimension,
-	value,
+	values,
 	onChange,
 }: {
 	dimensionKey: VisibleFilterKey;
 	dimension: FilterDimension;
-	value: string | null;
-	onChange: (value: string | null) => void;
+	values: string[];
+	onChange: (values: string[]) => void;
 }) {
+	const [search, setSearch] = useState("");
+	const searchable = SEARCHABLE_FILTER_KEYS.has(dimensionKey);
+	const normalizedSearch = search.trim().toLowerCase();
+	const resetOption = { value: null, label: ALL_LABELS[dimensionKey] };
+	const options = [
+		resetOption,
+		...dimension.options.map((o) => ({ value: o.value, label: o.label })),
+	];
+	const visibleOptions =
+		searchable && normalizedSearch
+			? options.filter((option) =>
+					option.label.toLowerCase().includes(normalizedSearch),
+				)
+			: options;
+	const [singular, plural] = FILTER_COUNT_LABELS[dimensionKey];
+
 	return (
-		<Select
-			value={value}
-			onValueChange={(v) => onChange(v)}
-			items={[
-				{ value: null, label: ALL_LABELS[dimensionKey] },
-				...dimension.options.map((o) => ({ value: o.value, label: o.label })),
-			]}
+		<Select<string | null, true>
+			multiple
+			value={values}
+			onOpenChange={(open) => {
+				if (!open) setSearch("");
+			}}
+			onValueChange={(next) =>
+				// The "All X" item is null, and gets toggled in like any other —
+				// treat it as a reset instead.
+				onChange(next.includes(null) ? [] : next.filter((v) => v !== null))
+			}
+			items={dimension.options.map((o) => ({ value: o.value, label: o.label }))}
 		>
 			<SelectTrigger className="w-full">
-				<SelectValue placeholder={FILTER_LABELS[dimensionKey]} />
+				<SelectValue placeholder={FILTER_LABELS[dimensionKey]}>
+					{() =>
+						values.length > 0
+							? `${values.length} ${values.length === 1 ? singular : plural}`
+							: FILTER_LABELS[dimensionKey]
+					}
+				</SelectValue>
 			</SelectTrigger>
-			<SelectContent>
-				<SelectItem value={null}>{ALL_LABELS[dimensionKey]}</SelectItem>
-				{dimension.options.map((option) => (
-					<SelectItem key={option.value} value={option.value}>
+			<SelectContent
+				header={
+					searchable ? (
+						<div className="sticky top-0 z-10 border-b bg-popover p-1.5">
+							<Input
+								value={search}
+								onChange={(event) => setSearch(event.target.value)}
+								onKeyDown={(event) => {
+									if (event.key !== "Escape" && event.key !== "Tab") {
+										event.stopPropagation();
+									}
+								}}
+								onPointerDown={(event) => event.stopPropagation()}
+								placeholder={`Search ${plural}`}
+								autoComplete="off"
+								className="h-7"
+							/>
+						</div>
+					) : undefined
+				}
+			>
+				{visibleOptions.map((option) => (
+					<SelectItem key={option.value ?? "all"} value={option.value}>
 						{option.label}
 					</SelectItem>
 				))}
+				{visibleOptions.length === 0 && (
+					<div className="px-2 py-2 text-muted-foreground text-xs">
+						No {plural} found
+					</div>
+				)}
 			</SelectContent>
 		</Select>
 	);
@@ -407,8 +475,14 @@ function SponsoredTableRow({ s }: { s: SponsoredItem }) {
 }
 
 export default function Home({ loaderData }: Route.ComponentProps) {
-	const { jobs, sponsored, page, totalPages, total, q, filters } = loaderData;
+	const { jobs, sponsored, page, totalPages, total, q } = loaderData;
 	const navigate = useNavigate();
+
+	const [filters, setFilters] = useState(loaderData.filters);
+
+	useEffect(() => {
+		setFilters(loaderData.filters);
+	}, [loaderData.filters]);
 
 	// Merge owned + sponsored rows: interleaved, leftovers trailing.
 	const rows: Array<
@@ -428,32 +502,19 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 	}
 
 	const activeFilters = FILTER_KEYS.flatMap((key) => {
-		const option = findFilterOption(key, filters[key]);
-		return option ? [{ key, label: option.label }] : [];
+		const options = findFilterOptions(key, filters[key]);
+		return options.length === 0
+			? []
+			: [{ key, label: options.map((o) => o.label).join(" · ") }];
 	});
 	const hasActiveFilters = q.length > 0 || activeFilters.length > 0;
 
-	const pageHref = (p: number) => {
-		const params = new URLSearchParams();
-		if (q) params.set("q", q);
-		for (const key of FILTER_KEYS) {
-			const value = filters[key];
-			if (value) params.set(key, value);
-		}
-		if (p > 1) params.set("page", String(p));
-		const qs = params.toString();
-		return qs ? `/?${qs}` : "/";
-	};
+	const pageHref = (p: number) => canonicalPath({ q, filters, page: p });
 
-	const onFilterChange = (key: FilterKey, value: string | null) => {
-		const params = new URLSearchParams();
-		if (q) params.set("q", q);
-		for (const k of FILTER_KEYS) {
-			const v = k === key ? value : filters[k];
-			if (v) params.set(k, v);
-		}
-		const qs = params.toString();
-		navigate(qs ? `/?${qs}` : "/");
+	const onFilterChange = (key: FilterKey, values: string[]) => {
+		const next = { ...filters, [key]: values };
+		setFilters(next);
+		navigate(canonicalPath({ q, filters: next }));
 	};
 
 	const start = Math.max(1, Math.min(page - 2, totalPages - 4));
@@ -479,7 +540,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 									key={f.key}
 									type="hidden"
 									name={f.key}
-									value={filters[f.key] ?? ""}
+									value={filters[f.key].join(",")}
 								/>
 							))}
 						</Form>
@@ -489,8 +550,8 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 								key={key}
 								dimensionKey={key}
 								dimension={FILTER_DIMENSIONS[key]}
-								value={filters[key]}
-								onChange={(value) => onFilterChange(key, value)}
+								values={filters[key]}
+								onChange={(values) => onFilterChange(key, values)}
 							/>
 						))}
 					</div>
