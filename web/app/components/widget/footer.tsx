@@ -10,7 +10,7 @@ function Footer() {
 	const [copyingEmail, setCopyingEmail] = useState(false);
 
 	return (
-		<nav className="container mx-auto flex w-full items-center justify-between border-t py-4">
+		<nav className="container mx-auto flex flex-col md:flex-row gap-2 w-full items-center justify-between border-t py-4">
 			<p className="text-xs text-muted-foreground">
 				&copy; {new Date().getFullYear()} Kerja-IT.com, All rights reserved.
 			</p>
