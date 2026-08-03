@@ -76,17 +76,18 @@ export function canonicalPath({
 	page,
 }: {
 	q?: string;
-	filters?: Partial<Record<FilterKey, string | null>>;
+	filters?: Partial<Record<FilterKey, string | string[] | null>>;
 	page?: number;
 }): string {
 	const params = new URLSearchParams();
 	if (q) params.set("q", q);
 	for (const key of FILTER_KEYS) {
 		const value = filters?.[key];
-		if (value) params.set(key, value);
+		const serialized = Array.isArray(value) ? value.join(",") : value;
+		if (serialized) params.set(key, serialized);
 	}
 	if (page && page > 1) params.set("page", String(page));
-	const qs = params.toString();
+	const qs = params.toString().replaceAll("%2C", ",");
 	return qs ? `/?${qs}` : "/";
 }
 
