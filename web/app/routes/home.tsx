@@ -27,6 +27,7 @@ import {
 	SelectValue,
 } from "~/components/core/select";
 import { Table, TableBody, TableCell, TableRow } from "~/components/core/table";
+import { Footer } from "~/components/widget/footer";
 import { Header } from "~/components/widget/header";
 import { db } from "~/db";
 import { job } from "~/db/schema";
@@ -582,6 +583,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 					Page {page} of {totalPages}
 				</p>
 			</main>
+			<Footer />
 		</div>
 	);
 }
