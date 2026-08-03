@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { Link } from "react-router";
 import { Button } from "~/components/core/button";
+import { Footer } from "~/components/widget/footer";
 import { Header } from "~/components/widget/header";
 import { db } from "~/db";
 import { job } from "~/db/schema";
@@ -175,6 +176,7 @@ export default function JobPage({ loaderData }: Route.ComponentProps) {
 					.
 				</p>
 			</main>
+			<Footer />
 		</div>
 	);
 }

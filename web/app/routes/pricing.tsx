@@ -10,6 +10,7 @@ import {
 	FieldTitle,
 } from "~/components/core/field";
 import { RadioGroup, RadioGroupItem } from "~/components/core/radio-group";
+import { Footer } from "~/components/widget/footer";
 import { Header } from "~/components/widget/header";
 import { formatRM, PACKS } from "~/lib/job-packs";
 import { buildMeta, SITE_NAME } from "~/lib/seo";
@@ -184,6 +185,7 @@ export default function Pricing({ loaderData }: Route.ComponentProps) {
 					))}
 				</section>
 			</main>
+			<Footer />
 		</div>
 	);
 }

@@ -8,8 +8,10 @@ export default [
 	route("jobs/:slug", "routes/jobs.$slug.tsx"),
 	route("pricing", "routes/pricing.tsx"),
 	route("dashboard", "routes/dashboard.tsx"),
+
 	route("robots.txt", "routes/robots.txt.ts"),
 	route("sitemap.xml", "routes/sitemap.xml.ts"),
+
 	route("api/auth/*", "routes/api.auth.$.ts"),
 	route("api/checkout", "routes/api.checkout.ts"),
 	route("api/webhooks/stripe", "routes/api.webhooks.stripe.ts"),
