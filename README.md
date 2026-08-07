@@ -23,6 +23,9 @@ Monorepo of two projects:
 - New jobs are also sent daily to https://t.me/KerjaIT_daily via
   `/api/cron/telegram-digest`, which the same external cron calls directly —
   unlike the scraper it needs no GitHub workflow.
+- Employers can post directly at `/post-a-job` (Google/LinkedIn sign-in via
+  better-auth, salary required); posts are reviewed in `/admin` before they
+  go live.
 
 ## Development
 

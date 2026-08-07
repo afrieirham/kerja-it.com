@@ -156,8 +156,32 @@ export const JOB_SENIORITIES: FilterDimension = {
 			label: "Lead / Principal / Staff",
 			patterns: ["% lead% ", "%principal%", "%staff engineer%"],
 		},
+		// Before "senior" on purpose: extractFirst (job-extract.server.ts)
+		// takes the FIRST matching option, and "mid-senior" titles contain
+		// "senior".
+		{
+			value: "mid-level",
+			label: "Mid-Level",
+			patterns: [
+				"%mid-level%",
+				"%mid level%",
+				"%mid-senior%",
+				"%intermediate%",
+			],
+		},
 		{ value: "senior", label: "Senior", patterns: ["%senior%"] },
 		{ value: "junior", label: "Junior", patterns: ["%junior%"] },
+		{
+			value: "fresh",
+			label: "Fresh Grad / No Experience",
+			patterns: [
+				"%fresh grad%",
+				"%fresh graduate%",
+				"%entry level%",
+				"%entry-level%",
+				"%no experience%",
+			],
+		},
 		{
 			value: "intern",
 			label: "Intern",
