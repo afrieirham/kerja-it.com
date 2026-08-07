@@ -17,6 +17,9 @@ gotchas an agent is likely to miss.
 - There is **no test suite and no lint script**. Verify changes with
   `npm run typecheck` and `npx biome check .` (Biome 2.x, linter enabled in
   `biome.json`). `npm run format` only formats (`biome format --write`).
+  `npx biome check .` has a few known pre-existing lint errors in
+  shadcn-generated `components/core` files (field/label/pagination) — don't
+  mistake them for regressions from your change.
 - Biome style: tabs, double quotes, organize-imports on save (assist).
 - **Env trap:** `app/env.server.ts` validates env at import time via
   `@t3-oss/env-core` + zod — a missing required var crashes `npm run dev`
@@ -89,12 +92,26 @@ gotchas an agent is likely to miss.
   post frees its credit, which IS the rejection-refund. Stripe Checkout
   (`/api/checkout`) + webhook (`/api/webhooks/stripe`, raw-body signature
   check, idempotent via unique `stripeSessionId`); `featuredUntil` is
-  stamped at APPROVAL (30 live days), not submission. `/dashboard` gives
-  employers their posts, credit balance and a 1:1 `CompanyProfile` that
-  only prefills the form (jobs keep their own `company` text snapshot).
+  stamped at APPROVAL (30 live days), not submission. Test the webhook
+  locally with `npm run stripe:webhook` (Stripe CLI listen forwarding to
+  the dev server). `/dashboard` is the
+  tabbed employer hub — tabs are URL-driven (`?tab=overview|listings|
+  billing|profile`, default overview): Overview (credit / free-post / live /
+  pending stats + post/get-credits CTAs), Listings (the account's posts with
+  status badges; delete goes through an AlertDialog confirm, and Duplicate
+  links to `/post-a-job?from=<jobId>` — the post-a-job loader prefills the
+  form from that job only when it belongs to the user), Billing (computed
+  balance, purchased/used counts, free-post status, paid `JobOrder`
+  history), Profile (the 1:1 `CompanyProfile` that only prefills the form —
+  jobs keep their own `company` text snapshot). There is no edit flow:
+  employers delete + duplicate instead, so approved copy can't be swapped
+  behind moderation.
 - Path alias `~/*` → `./app/*`.
 - shadcn: generated UI lives in `~/components/core` (not `ui`), built on
-  `@base-ui/react` (not Radix), lucide icons. App-specific components go in
+  `@base-ui/react` (not Radix), lucide icons. Add new components with the
+  CLI — `npx shadcn add <name>` from `web/` (components.json style
+  `base-lyra` + `ui` alias emit base-ui-flavored code into the right
+  place) — never hand-write primitives. App-specific components go in
   `~/components/widget`.
 - Routes are explicitly registered in `app/routes.ts` — `home`, `sign-in`,
   `post-a-job`, `pricing`, `dashboard`, `admin`, `jobs/:slug`,
@@ -107,7 +124,9 @@ gotchas an agent is likely to miss.
   CLI-generated lowercase names as a documented exception. There are no
   versioned migrations — changes are applied with `npm run db:push` (the
   `app/db/migrations` output dir in `drizzle.config.ts` is configured but
-  unused).
+  unused). Timestamps are `mode: "string"` — rows hand you strings, so
+  parse with `new Date(ts.replace(" ", "T") + "Z")` (helper duplicated
+  across routes); calling Date methods on them directly crashes.
 - Write-time extraction: `app/lib/job-extract.server.ts` (`extractJob`)
   cleans raw title/description (hacks moved from the scraper) and extracts
   `company`/`location`/`role`/`seniority`/`salary`/`postedAt` — all

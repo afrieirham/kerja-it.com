@@ -1,6 +1,6 @@
 import { and, eq, gte, sql } from "drizzle-orm";
 import { useState } from "react";
-import { Form, redirect, useNavigation } from "react-router";
+import { Form, Link, redirect, useNavigation } from "react-router";
 import { z } from "zod";
 import { Button } from "~/components/core/button";
 import { Field } from "~/components/core/field";
@@ -45,18 +45,50 @@ export function meta() {
 export async function loader({ request }: Route.LoaderArgs) {
 	const session = await getSession(request);
 	if (!session) {
-		throw redirect(`/sign-in?redirect=${encodeURIComponent("/post-a-job")}`);
+		// Keep the query string so ?from= survives the sign-in round-trip.
+		const url = new URL(request.url);
+		throw redirect(
+			`/sign-in?redirect=${encodeURIComponent(url.pathname + url.search)}`,
+		);
 	}
 
-	const [profile] = await db
-		.select({ name: companyProfile.name })
-		.from(companyProfile)
-		.where(eq(companyProfile.userId, session.user.id))
-		.limit(1);
+	// ?from=<jobId> duplicates one of the user's own posts into the form
+	// (dashboard "Duplicate" action). Silently ignored when unknown/foreign.
+	const from = new URL(request.url).searchParams.get("from");
+
+	const [profile, sourceJob] = await Promise.all([
+		db
+			.select({ name: companyProfile.name })
+			.from(companyProfile)
+			.where(eq(companyProfile.userId, session.user.id))
+			.limit(1),
+		from
+			? db
+					.select({
+						title: job.title,
+						company: job.company,
+						url: job.url,
+						applyEmail: job.applyEmail,
+						description: job.description,
+						role: job.role,
+						seniority: job.seniority,
+						location: job.location,
+						city: job.city,
+						arrangement: job.arrangement,
+						employmentType: job.employmentType,
+						salaryMin: job.salaryMin,
+						salaryMax: job.salaryMax,
+					})
+					.from(job)
+					.where(and(eq(job.id, from), eq(job.postedById, session.user.id)))
+					.limit(1)
+			: Promise.resolve([]),
+	]);
 
 	return {
 		user: { name: session.user.name, email: session.user.email },
-		companyDefault: profile?.name ?? "",
+		companyDefault: profile[0]?.name ?? "",
+		prefill: sourceJob[0] ?? null,
 		// value/label only — the ILIKE patterns stay server-side.
 		selects: {
 			role: FILTER_DIMENSIONS.role.options.map(({ value, label }) => ({
@@ -134,7 +166,6 @@ const formSchema = z
 			"internship",
 			"contract",
 		]),
-		salaryMode: z.enum(["range", "exact"]),
 		salaryMin: z.coerce.number().int().min(500, "Minimum RM500").max(1_000_000),
 		// Absent in exact mode (the input isn't rendered).
 		salaryMax: z.coerce
@@ -202,8 +233,7 @@ export async function action({ request }: Route.ActionArgs) {
 	}
 
 	const salaryMin = data.salaryMin;
-	const salaryMaxInput =
-		data.salaryMode === "exact" ? salaryMin : data.salaryMax;
+	const salaryMaxInput = data.salaryMax;
 	if (salaryMaxInput === undefined || salaryMaxInput < 1) {
 		errors.salaryMax = "Enter the salary max.";
 	} else if (salaryMaxInput < salaryMin) {
@@ -372,11 +402,14 @@ export default function PostAJob({
 	loaderData,
 	actionData,
 }: Route.ComponentProps) {
-	const { selects, arrangements, employmentTypes, companyDefault } = loaderData;
+	const { selects, arrangements, employmentTypes, companyDefault, prefill } =
+		loaderData;
 	const navigation = useNavigation();
 	const submitting = navigation.state === "submitting";
-	const [salaryMode, setSalaryMode] = useState<"range" | "exact">("range");
-	const [arrangement, setArrangement] = useState<Arrangement>("on-site");
+	const [arrangement, setArrangement] = useState<Arrangement>(
+		arrangements.find((o) => o.value === prefill?.arrangement)?.value ??
+			"on-site",
+	);
 	const isRemote = arrangement === "remote";
 
 	const errors: FieldErrors | undefined =
@@ -397,6 +430,15 @@ export default function PostAJob({
 							approved.
 						</p>
 					)}
+					<div className="pt-2">
+						<Button
+							variant="outline"
+							size="sm"
+							render={<Link to="/dashboard?tab=listings" />}
+						>
+							View in dashboard
+						</Button>
+					</div>
 				</main>
 			</div>
 		);
@@ -413,6 +455,13 @@ export default function PostAJob({
 						Salary is required: posts with visible salary get more applications.
 					</p>
 				</div>
+
+				{prefill && (
+					<p className="border border-border bg-muted px-3 py-2 text-muted-foreground text-xs">
+						Duplicating “{prefill.title}” — review the details, then submit as a
+						new post for review.
+					</p>
+				)}
 
 				{errors?.form && (
 					<p className="border border-destructive/30 bg-destructive/10 px-3 py-2 text-destructive text-xs">
@@ -432,6 +481,7 @@ export default function PostAJob({
 							minLength={3}
 							maxLength={120}
 							placeholder="Senior Frontend Engineer"
+							defaultValue={prefill?.title ?? ""}
 							aria-invalid={!!errors?.title}
 						/>
 						<FieldError message={errors?.title} />
@@ -448,8 +498,9 @@ export default function PostAJob({
 							minLength={2}
 							maxLength={120}
 							placeholder="Acme Sdn Bhd"
-							defaultValue={companyDefault}
+							defaultValue={prefill?.company ?? companyDefault}
 							aria-invalid={!!errors?.company}
+							disabled
 						/>
 						<FieldError message={errors?.company} />
 					</div>
@@ -471,6 +522,7 @@ export default function PostAJob({
 								type="url"
 								maxLength={500}
 								placeholder="https://careers.acme.com/jobs/123"
+								defaultValue={prefill?.url ?? ""}
 								aria-invalid={!!errors?.applyUrl}
 							/>
 							<FieldError message={errors?.applyUrl} />
@@ -488,6 +540,7 @@ export default function PostAJob({
 								type="email"
 								maxLength={254}
 								placeholder="hiring@acme.com"
+								defaultValue={prefill?.applyEmail ?? ""}
 								aria-invalid={!!errors?.applyEmail}
 							/>
 							<FieldError message={errors?.applyEmail} />
@@ -499,6 +552,7 @@ export default function PostAJob({
 						label={FILTER_LABELS.role}
 						options={selects.role}
 						required
+						defaultValue={prefill?.role}
 						error={errors?.role}
 					/>
 
@@ -527,6 +581,7 @@ export default function PostAJob({
 								label="State"
 								options={selects.location}
 								required
+								defaultValue={prefill?.location}
 								error={errors?.location}
 							/>
 							<div className="space-y-1">
@@ -539,6 +594,7 @@ export default function PostAJob({
 									required
 									maxLength={100}
 									placeholder="Bangsar"
+									defaultValue={prefill?.city ?? ""}
 									aria-invalid={!!errors?.city}
 								/>
 								<FieldError message={errors?.city} />
@@ -551,6 +607,7 @@ export default function PostAJob({
 							name="seniority"
 							label={FILTER_LABELS.seniority}
 							options={selects.seniority}
+							defaultValue={prefill?.seniority}
 							error={errors?.seniority}
 						/>
 						<FormSelect
@@ -558,7 +615,7 @@ export default function PostAJob({
 							label="Employment type"
 							options={employmentTypes}
 							required
-							defaultValue="full-time"
+							defaultValue={prefill?.employmentType ?? "full-time"}
 							error={errors?.employmentType}
 						/>
 					</div>
@@ -567,28 +624,6 @@ export default function PostAJob({
 						<legend className="text-xs font-medium">
 							Salary (RM / month) — required
 						</legend>
-						<div className="flex gap-4 text-xs">
-							<label className="inline-flex items-center gap-1">
-								<input
-									type="radio"
-									name="salaryMode"
-									value="range"
-									checked={salaryMode === "range"}
-									onChange={() => setSalaryMode("range")}
-								/>
-								Range
-							</label>
-							<label className="inline-flex items-center gap-1">
-								<input
-									type="radio"
-									name="salaryMode"
-									value="exact"
-									checked={salaryMode === "exact"}
-									onChange={() => setSalaryMode("exact")}
-								/>
-								Exact
-							</label>
-						</div>
 						<div className="flex gap-2">
 							<Field data-invalid={errors?.salaryMin}>
 								<Input
@@ -597,29 +632,27 @@ export default function PostAJob({
 									min={1}
 									max={1000000}
 									required
-									placeholder={
-										salaryMode === "exact" ? "Amount" : "Min, e.g. 5000"
-									}
-									aria-label={salaryMode === "exact" ? "Salary" : "Salary min"}
+									placeholder="Min, e.g. 5000"
+									defaultValue={prefill?.salaryMin ?? ""}
+									aria-label="Salary min"
 									aria-invalid={!!errors?.salaryMin}
 								/>
 								<FieldError message={errors?.salaryMin} />
 							</Field>
-							{salaryMode === "range" && (
-								<Field data-invalid={errors?.salaryMax}>
-									<Input
-										name="salaryMax"
-										type="number"
-										min={1}
-										max={1000000}
-										required
-										placeholder="Max, e.g. 8000"
-										aria-label="Salary max"
-										aria-invalid={!!errors?.salaryMax}
-									/>
-									<FieldError message={errors?.salaryMax} />
-								</Field>
-							)}
+							<Field data-invalid={errors?.salaryMax}>
+								<Input
+									name="salaryMax"
+									type="number"
+									min={1}
+									max={1000000}
+									required
+									placeholder="Max, e.g. 8000"
+									defaultValue={prefill?.salaryMax ?? ""}
+									aria-label="Salary max"
+									aria-invalid={!!errors?.salaryMax}
+								/>
+								<FieldError message={errors?.salaryMax} />
+							</Field>
 						</div>
 					</fieldset>
 
@@ -636,6 +669,7 @@ export default function PostAJob({
 							rows={18}
 							className="w-full rounded-none border border-input bg-transparent px-2.5 py-2 text-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-1 aria-invalid:ring-destructive/20"
 							placeholder="What the role does, the stack, and what you're looking for…"
+							defaultValue={prefill?.description ?? ""}
 							aria-invalid={!!errors?.description}
 						/>
 						<FieldError message={errors?.description} />
