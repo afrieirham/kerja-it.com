@@ -4,6 +4,9 @@ import { z } from "zod";
 
 export const env = createEnv({
 	server: {
+		NODE_ENV: z
+			.enum(["development", "test", "production"])
+			.default("development"),
 		DATABASE_URL: z.url(),
 		CRON_API_KEY: z.string(),
 		// Optional — unset just disables sponsored jobs from Careerjet.
