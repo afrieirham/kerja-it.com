@@ -289,3 +289,10 @@ export function findFilterOption(
 	if (!value) return undefined;
 	return FILTER_DIMENSIONS[key].options.find((o) => o.value === value);
 }
+
+export function findFilterOptions(
+	key: FilterKey,
+	values: string[],
+): FilterOption[] {
+	return FILTER_DIMENSIONS[key].options.filter((o) => values.includes(o.value));
+}
