@@ -1,8 +1,9 @@
-import { desc, gte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "~/db";
 import { job } from "~/db/schema";
 import { env } from "~/env.server";
+import { sharePath } from "~/lib/job-attributes";
 import { SITE_URL } from "~/lib/seo";
 import {
 	escapeHtml,
@@ -50,15 +51,23 @@ export async function action({ request }: Route.ActionArgs) {
 	}
 
 	// Window on createdAt (arrival on this board), not postedAt (source-site
-	// date): the digest announces what is NEW here.
-	const where = gte(job.createdAt, WINDOW);
+	// date): the digest announces what is NEW here. Published only — pending
+	// direct posts would otherwise leak to the channel before review.
+	const where = and(gte(job.createdAt, WINDOW), eq(job.status, "published"));
 
 	const [jobs, total] = await Promise.all([
 		db
 			.select()
 			.from(job)
 			.where(where)
-			.orderBy(desc(job.createdAt), desc(job.id))
+			.orderBy(
+				// Featured (paid) posts lead the digest.
+				desc(
+					sql`(${job.featuredUntil} is not null and ${job.featuredUntil} > CURRENT_TIMESTAMP)`,
+				),
+				desc(job.createdAt),
+				desc(job.id),
+			)
 			.limit(MAX_JOBS),
 		db.$count(job, where),
 	]);
@@ -67,10 +76,25 @@ export async function action({ request }: Route.ActionArgs) {
 		return Response.json({ received: true, sent: false, count: 0 });
 	}
 
-	const lines = jobs.map((j, i) => {
-		const meta = [j.company].filter(Boolean).join(" · ");
-		const title = `<a href="${escapeHtml(j.url)}">${escapeHtml(j.title)}</a>`;
-		return `${i + 1}. ${title}${meta ? ` — ${escapeHtml(meta)}` : ""}\n`;
+	// Direct posts link to their on-site page (shareable, indexable);
+	// scraped jobs link straight out.
+	const rows = jobs.flatMap((j) => {
+		const path = sharePath(j);
+		return path ? [{ j, path }] : [];
+	});
+
+	const lines = rows.map(({ j, path }, i) => {
+		const href = path.startsWith("/") ? `${SITE_URL}${path}` : path;
+		const featured = Boolean(
+			j.featuredUntil &&
+				new Date(`${j.featuredUntil.replace(" ", "T")}Z`).getTime() >
+					Date.now(),
+		);
+		const meta = [j.company, j.source, featured ? "featured" : null]
+			.filter(Boolean)
+			.join(" · ");
+		const title = `<a href="${escapeHtml(href)}">${escapeHtml(j.title)}</a>`;
+		return `${i + 1}. ${title}${meta ? ` — ${escapeHtml(meta)}` : ""}`;
 	});
 
 	const footer =

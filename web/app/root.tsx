@@ -8,9 +8,22 @@ import {
 } from "react-router";
 
 import { TooltipProvider } from "~/components/core/tooltip";
+import { getSession } from "~/lib/auth.server";
 import { buildMeta, SITE_NAME } from "~/lib/seo";
 import type { Route } from "./+types/root";
 import "./app.css";
+
+/**
+ * Session for the header (sign-in/out state). Loaded at the root rather than
+ * via authClient.useSession() so first paint is SSR-correct — and because
+ * useSession() would come from a module the dot-client Vite plugin stubs out
+ * on the server (see AGENTS.md). getSession never throws: on any auth-stack
+ * failure the header just renders as signed out.
+ */
+export async function loader({ request }: Route.LoaderArgs) {
+	const session = await getSession(request);
+	return { user: session?.user ?? null };
+}
 
 export const links: Route.LinksFunction = () => [
 	// public/favicon.ico previously resolved by static-path luck only.

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Button } from "~/components/core/button";
+import { Slash } from "~/components/core/slash";
 import {
 	Tooltip,
 	TooltipContent,
@@ -21,16 +22,16 @@ function Footer() {
 						rel="noopener"
 						href="https://github.com/afrieirham/kerja-it.com"
 					>
-						GitHub
+						github
 					</a>
 				</Button>
-				<p className="text-xs">/</p>
+				<Slash />
 				<Button size="xs" variant="link">
 					<a target="_blank" rel="noopener" href="https://t.me/kerjait_daily">
-						Telegram
+						telegram
 					</a>
 				</Button>
-				<p className="text-xs">/</p>
+				<Slash />
 				<Tooltip>
 					<TooltipTrigger
 						closeOnClick={false}
